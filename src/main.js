@@ -71,39 +71,47 @@ function resizeCanvas(canvas) {
     }
 }
 
-/** @type (HTMLCanvasElement|null) */
-const canvas = document.getElementById('gl-canvas');
-const gl = canvas.getContext('webgl');
+async function main() {
+    /** @type (HTMLCanvasElement|null) */
+    const canvas = document.getElementById('gl-canvas');
+    const gl = canvas.getContext('webgl');
 
-if (!gl) {
-    alert('WebGL is not supported by this browser!');
-    throw new Error('WebGL not available');
-} 
+    if (!gl) {
+        alert('WebGL is not supported by this browser!');
+        throw new Error('WebGL not available');
+    } 
+    console.log('WebGL correctly initialized');
 
-console.log('WebGL correctly initialized');
 
-const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
+    const objFileResponse = await fetch('resources/models/worm/worm-cuticle.obj');
+    const objFileContent = await objFileResponse.text();
+    console.log("Obj File Loaded, length:", objFileContent.length);
 
-// triangle vertices
-const vertices = new Float32Array([
-    0.0, 0.5, // top-center
-    -0.5, -0.5, // bottom-left
-    0.5, -0.5 // bottom-right
-]);
+    const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
 
-const buffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+    const objData = parseOBJ(objFileContent);
+    console.log("Vertex Loaded From Obj:", objData.vertexCount);
 
-const positionLocation = gl.getAttribLocation(program, 'a_position');
-gl.enableVertexAttribArray(positionLocation);
-gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0 , 0); // 2 numbers per vertex
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, objData.positions, gl.STATIC_DRAW);
 
-gl.useProgram(program);
-gl.clearColor(0.1, 0.1, 0.1, 1.0); //background color
-gl.clear(gl.COLOR_BUFFER_BIT); //clear screen
+    const positionLocation = gl.getAttribLocation(program, 'a_position');
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0); // 3 numbers per vertex
 
-resizeCanvas(canvas); //fullscreen resolution
-gl.viewport(0, 0, canvas.width, canvas.height); 
+    gl.useProgram(program);
+    resizeCanvas(canvas);
+    gl.viewport(0, 0, canvas.width, canvas.height);
 
-gl.drawArrays(gl.TRIANGLES, 0, 3)
+    gl.enable(gl.DEPTH_TEST); //control depth faces
+    gl.clearColor(0.1, 0.1, 0.1, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    gl.drawArrays(gl.TRIANGLES, 0, objData.vertexCount);
+}
+
+main();
+
+
+
