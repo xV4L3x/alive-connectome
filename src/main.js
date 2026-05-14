@@ -2,18 +2,24 @@
 
 const vertexShaderSource = `
     attribute vec4 a_position;
+    attribute vec4 a_color;
+
     uniform mat4 u_matrix;
+
+    varying vec4 v_color; //color to send to fragment
 
     void main() {
         gl_Position = u_matrix * a_position; //multiply all vertex before sending to screen
+        v_color = a_color;
     }
 `;
 
 const fragmentShaderSource = `
     precision mediump float;
+    varying vec4 v_color;
 
     void main() {
-        gl_FragColor = vec4(1.0, 0.5, 0.0, 1.0);
+        gl_FragColor = v_color;
     }
 `;
 
@@ -88,13 +94,24 @@ async function main() {
     const objFileContent = await objFileResponse.text();
     console.log("Obj File Loaded, length:", objFileContent.length);
 
+    const mtlFileResponse = await fetch('resources/models/worm/worm-cuticle.mtl');
+    const mtlFileContent = await mtlFileResponse.text();
+    console.log("Mtl File Loaded, length:", mtlFileContent.length);
+
     const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
 
     const matrixLocation = gl.getUniformLocation(program, 'u_matrix'); //get Model View Projection matrix address
 
-    const objData = parseOBJ(objFileContent);
+    const mtlData = parseMTL(mtlFileContent);
+    console.log("Materials Loaded From Mtl:", mtlData);
+
+    const objData = parseOBJ(objFileContent, mtlData);
     console.log("Vertex Loaded From Obj:", objData.vertexCount);
 
+    
+
+
+    //POSITION BUFFER FILLING
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, objData.positions, gl.STATIC_DRAW);
@@ -106,6 +123,15 @@ async function main() {
     gl.useProgram(program);
     resizeCanvas(canvas);
     gl.viewport(0, 0, canvas.width, canvas.height);
+
+    //TEXTURE APPLICATION
+    const colorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, objData.colors, gl.STATIC_DRAW);
+
+    const colorLocation = gl.getAttribLocation(program, 'a_color');
+    gl.enableVertexAttribArray(colorLocation);
+    gl.vertexAttribPointer(colorLocation, 4, gl.FLOAT, false, 0, 0);
 
 
     //PROJECTION MATRIX BUILDING
@@ -128,8 +154,6 @@ async function main() {
     //MVP MATRIX BUILDING
     const mvpMatrix = m4.multiply(projectionMatrix, m4.multiply(viewMatrix, modelMatrix));
     gl.uniformMatrix4fv(matrixLocation, false, mvpMatrix); // write to GPU
-
-
 
 
 

@@ -1,24 +1,44 @@
 //Credit: https://webglfundamentals.org/webgl/lessons/webgl-load-obj.html
-function parseOBJ(text) {
+function parseOBJ(text, materials) {
     const positions = [];
     const normals = [];
+    const texCoords = []; //load UV coordinates
 
     const outPositions = [];
     const outNormals = [];
+    const outTexCoords = [];
+    const outColors = [];
 
     function addVertex(vert) {
         const indices = vert.split('/');
         const posIdx = parseInt(indices[0]) - 1;
         outPositions.push(...positions[posIdx]);
+        
+
+        const color = (materials && materials[currentMaterial])
+            ? materials[currentMaterial].diffuse
+            : [0.8, 0.8, 0.8, 1.0];
+        outColors.push(...color);
+
+        
         if (indices[2]) {
-        const normIdx = parseInt(indices[2]) - 1;
-        outNormals.push(...normals[normIdx]);
+            const normIdx = parseInt(indices[2]) - 1;
+            outNormals.push(...normals[normIdx]);
         }
+
+        if (indices[1]) {
+            const uvIdx = parseInt(indices[1]) - 1;
+            outTexCoords.push(...texCoords[uvIdx]);
+        }     
     }
+
+    let currentMaterial = null;
 
     const keywords = {
         v(parts)  { positions.push(parts.map(parseFloat)); },
         vn(parts) { normals.push(parts.map(parseFloat)); },
+        vt(parts) { texCoords.push(parts.map(parseFloat)); },
+        usemtl(parts) { currentMaterial = parts[0]; },
         f(parts)  {
         for (let i = 1; i < parts.length - 1; i++) {
             addVertex(parts[0]);
@@ -45,6 +65,30 @@ function parseOBJ(text) {
     return {
         positions: new Float32Array(outPositions),
         normals:   new Float32Array(outNormals),
+        texCoords: new Float32Array(outTexCoords),
+        colors: new Float32Array(outColors),
         vertexCount: outPositions.length / 3,
     };
 }
+
+function parseMTL(text) {
+    const materials = {};
+    let currentMaterial = null;
+
+    for (const line of text.split('\n')) {
+        const parts = line.trim().split(/\s+/);
+        if (parts[0] === 'newmtl') {
+            currentMaterial = parts[1];
+            materials[currentMaterial] = {};
+        } else if (parts[0] === 'Kd' && currentMaterial) {
+            materials[currentMaterial].diffuse = [
+                parseFloat(parts[1]),
+                parseFloat(parts[2]),
+                parseFloat(parts[3]),
+                1.0
+            ];
+        }
+    }
+    return materials;
+}
+
