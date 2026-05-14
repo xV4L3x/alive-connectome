@@ -3,23 +3,54 @@
 const vertexShaderSource = `
     attribute vec4 a_position;
     attribute vec4 a_color;
+    attribute vec3 a_normal;
 
     uniform mat4 u_matrix;
+    uniform mat4 u_modelMatrix;
 
     varying vec4 v_color; //color to send to fragment
+    varying vec3 v_normal;
+    varying vec3 v_worldPos; //direction from surface to camera (specular effect)
 
     void main() {
         gl_Position = u_matrix * a_position; //multiply all vertex before sending to screen
         v_color = a_color;
+        v_normal = mat3(u_modelMatrix) * a_normal; //take only 3x3 matrix to not include translations
+        v_worldPos = (u_modelMatrix * a_position).xyz; //xyz only takes first 3 coordinates
     }
 `;
 
 const fragmentShaderSource = `
     precision mediump float;
+    
     varying vec4 v_color;
+    varying vec3 v_normal;
+    varying vec3 v_worldPos;
+
+    uniform vec3 u_lightPosition;
+    uniform vec3 u_viewPosition;
+
 
     void main() {
-        gl_FragColor = v_color;
+        vec3 normal = normalize(v_normal);
+        vec3 lightDir = normalize(u_lightPosition - v_worldPos); //surface towards light
+        vec3 viewDir = normalize(u_viewPosition - v_worldPos); //surface towards camera
+
+        //ambient
+        float ambientStrength = 0.4;
+        vec3 ambient = ambientStrength * v_color.rgb;
+
+        //diffuse
+        float diff = max(dot(normal, lightDir), 0.0); //when surface is towards the light (avoid negative)
+        vec3 diffuse = diff * v_color.rgb;
+
+        //specular
+        float specularStrength = 0.2;
+        vec3 reflectDir = reflect(-lightDir, normal);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0); //reflected ray (higher the ray, lower the reflection) (avoid negative)
+        vec3 specular = specularStrength * spec * vec3(1.0, 1.0, 1.0); //white reflection (1,1,1) rgb
+    
+        gl_FragColor = vec4(ambient + diffuse + specular, 1.0);
     }
 `;
 
@@ -133,6 +164,15 @@ async function main() {
     gl.enableVertexAttribArray(colorLocation);
     gl.vertexAttribPointer(colorLocation, 4, gl.FLOAT, false, 0, 0);
 
+    //NORMALS VECTORS
+    const normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, objData.normals, gl.STATIC_DRAW);
+
+    const normalLocation = gl.getAttribLocation(program, 'a_normal');
+    gl.enableVertexAttribArray(normalLocation);
+    gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
+
 
     //PROJECTION MATRIX BUILDING
     const fov = Math.PI / 4; // 45 degrees
@@ -155,6 +195,17 @@ async function main() {
     const mvpMatrix = m4.multiply(projectionMatrix, m4.multiply(viewMatrix, modelMatrix));
     gl.uniformMatrix4fv(matrixLocation, false, mvpMatrix); // write to GPU
 
+    //MODEL MATRIX (ONLY FOR PHONG)
+    const modelMatrixLocation = gl.getUniformLocation(program, 'u_modelMatrix');
+    gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix);
+
+    //LIGHT POSITION
+    const lightPositionLocation = gl.getUniformLocation(program, 'u_lightPosition');
+    gl.uniform3fv(lightPositionLocation, [2,3,4]);
+
+    //CAMERA POSITION
+    const viewPositionLocation = gl.getUniformLocation(program, 'u_viewPosition');
+    gl.uniform3fv(viewPositionLocation, eye);
 
 
     gl.enable(gl.DEPTH_TEST); //control depth faces
