@@ -129,6 +129,13 @@ async function main() {
     const mtlFileContent = await mtlFileResponse.text();
     console.log("Mtl File Loaded, length:", mtlFileContent.length);
 
+    const csvFileResponse = await fetch('resources/data/herm_full_edgelist.csv');
+    const csvFileContent = await csvFileResponse.text();
+    console.log("Csv File Loaded, length:", csvFileContent.length);
+
+    const synapses = parseConnectomeCsv(csvFileContent);
+    console.log("Synapses parsed:", synapses.length);
+
     const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
 
     const matrixLocation = gl.getUniformLocation(program, 'u_matrix'); //get Model View Projection matrix address
@@ -220,7 +227,6 @@ async function main() {
     }
 
     render();
-
 }
 
 main();
