@@ -2,9 +2,10 @@
 
 const vertexShaderSource = `
     attribute vec4 a_position;
+    uniform mat4 u_matrix;
 
     void main() {
-        gl_Position = a_position;
+        gl_Position = u_matrix * a_position; //multiply all vertex before sending to screen
     }
 `;
 
@@ -89,6 +90,8 @@ async function main() {
 
     const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
 
+    const matrixLocation = gl.getUniformLocation(program, 'u_matrix'); //get Model View Projection matrix address
+
     const objData = parseOBJ(objFileContent);
     console.log("Vertex Loaded From Obj:", objData.vertexCount);
 
@@ -103,6 +106,32 @@ async function main() {
     gl.useProgram(program);
     resizeCanvas(canvas);
     gl.viewport(0, 0, canvas.width, canvas.height);
+
+
+    //PROJECTION MATRIX BUILDING
+    const fov = Math.PI / 4; // 45 degrees
+    const aspect = canvas.width / canvas.height;
+    const near = 0.1; // frustum near cutting plane
+    const far = 1000.0; // frustum far cutting plane
+    const projectionMatrix = m4.perspective(fov, aspect, near, far);
+
+    //VIEW MATRIX BUILDING
+    const eye = [0, 0, 5]; // camera position
+    const target = [0, 0, 0]; // looking at point
+    const up = [0, 1, 0]; // upper direction
+    const viewMatrix = m4.inverse(m4.lookAt(eye, target, up)); // inverse matrix because we need the matrix of "the world" seen by the camera, not the camera
+
+    //MODEL MATRIX BUILDING
+    const scalingFactor = 0.5;
+    const modelMatrix = m4.scaling(scalingFactor, scalingFactor, scalingFactor); //scale model on the 3 axis
+
+    //MVP MATRIX BUILDING
+    const mvpMatrix = m4.multiply(projectionMatrix, m4.multiply(viewMatrix, modelMatrix));
+    gl.uniformMatrix4fv(matrixLocation, false, mvpMatrix); // write to GPU
+
+
+
+
 
     gl.enable(gl.DEPTH_TEST); //control depth faces
     gl.clearColor(0.1, 0.1, 0.1, 1.0);
