@@ -68,6 +68,30 @@ Higher shininess $n$ produces a smaller, sharper highlight. The specular color i
 v_normal = mat3(u_modelMatrix) * a_normal;
 ```
 
+### Camera Orbitale
+
+La camera ruota attorno al target (il verme) usando **coordinate sferiche**. La posizione della camera è descritta da tre parametri:
+
+- $\phi$ (`azimuth`) — angolo orizzontale, aggiornato dal drag orizzontale del mouse
+- $\theta$ (`elevation`) — angolo verticale, aggiornato dal drag verticale del mouse
+- $r$ (`distance`) — distanza dal target, aggiornata dalla rotella del mouse
+
+La conversione da coordinate sferiche a cartesiane:
+
+$$x = r \cdot \cos\theta \cdot \sin\phi$$
+$$y = r \cdot \sin\theta$$
+$$z = r \cdot \cos\theta \cdot \cos\phi$$
+
+```javascript
+const x = camera.distance * Math.cos(camera.elevation) * Math.sin(camera.azimuth);
+const y = camera.distance * Math.sin(camera.elevation);
+const z = camera.distance * Math.cos(camera.elevation) * Math.cos(camera.azimuth);
+```
+
+La view matrix è l'inversa della `lookAt(eye, target, up)`, ricalcolata ogni frame con la nuova posizione `eye`.
+
+L'elevation è vincolata all'intervallo $\left(-\frac{\pi}{2} + \varepsilon,\ \frac{\pi}{2} - \varepsilon\right)$ per evitare singolarità ai poli, dove `lookAt` diventa instabile (il vettore `up` e la direzione di vista diventano paralleli).
+
 ## References
 - Worm 3D model: [VirtualWorm](http://www.openworm.org/animatedworm.html) — WormBase / Caltech, MIT License
 - Connectome dataset: [OpenWorm / CElegansNeuroML](https://github.com/openworm/CElegansNeuroML) — MIT License

@@ -139,9 +139,6 @@ async function main() {
     const objData = parseOBJ(objFileContent, mtlData);
     console.log("Vertex Loaded From Obj:", objData.vertexCount);
 
-    
-
-
     //POSITION BUFFER FILLING
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -152,8 +149,6 @@ async function main() {
     gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0); // 3 numbers per vertex
 
     gl.useProgram(program);
-    resizeCanvas(canvas);
-    gl.viewport(0, 0, canvas.width, canvas.height);
 
     //TEXTURE APPLICATION
     const colorBuffer = gl.createBuffer();
@@ -174,45 +169,109 @@ async function main() {
     gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
 
 
-    //PROJECTION MATRIX BUILDING
-    const fov = Math.PI / 4; // 45 degrees
-    const aspect = canvas.width / canvas.height;
-    const near = 0.1; // frustum near cutting plane
-    const far = 1000.0; // frustum far cutting plane
-    const projectionMatrix = m4.perspective(fov, aspect, near, far);
+    const camera = {
+        azimuth: 0.0,
+        elevation: 0.3,
+        distance: 5,
+        target: [0, 0, 0]
+    };
 
-    //VIEW MATRIX BUILDING
-    const eye = [0, 0, 5]; // camera position
-    const target = [0, 0, 0]; // looking at point
-    const up = [0, 1, 0]; // upper direction
-    const viewMatrix = m4.inverse(m4.lookAt(eye, target, up)); // inverse matrix because we need the matrix of "the world" seen by the camera, not the camera
+    const draggingSensitivity = 0.005;
 
-    //MODEL MATRIX BUILDING
-    const scalingFactor = 0.5;
-    const modelMatrix = m4.scaling(scalingFactor, scalingFactor, scalingFactor); //scale model on the 3 axis
+    let isDragging = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
 
-    //MVP MATRIX BUILDING
-    const mvpMatrix = m4.multiply(projectionMatrix, m4.multiply(viewMatrix, modelMatrix));
-    gl.uniformMatrix4fv(matrixLocation, false, mvpMatrix); // write to GPU
+    canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+    });
 
-    //MODEL MATRIX (ONLY FOR PHONG)
-    const modelMatrixLocation = gl.getUniformLocation(program, 'u_modelMatrix');
-    gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix);
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastMouseX;
+        const dy = e.clientY - lastMouseY;
 
-    //LIGHT POSITION
-    const lightPositionLocation = gl.getUniformLocation(program, 'u_lightPosition');
-    gl.uniform3fv(lightPositionLocation, [2,3,4]);
+        camera.azimuth -= dx * draggingSensitivity;
+        camera.elevation += dy * draggingSensitivity;
+        camera.elevation = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, camera.elevation)); //[-90°,90°]
+        
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+    });
 
-    //CAMERA POSITION
-    const viewPositionLocation = gl.getUniformLocation(program, 'u_viewPosition');
-    gl.uniform3fv(viewPositionLocation, eye);
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        camera.distance += e.deltaY * 0.01;
+        camera.distance = Math.max(0.5, Math.min(50, camera.distance)); //[0.5,50]
+    }, { passive: false });
+
+    canvas.addEventListener('mouseup',    () => { isDragging = false; });
+    canvas.addEventListener('mouseleave', () => { isDragging = false; });
 
 
-    gl.enable(gl.DEPTH_TEST); //control depth faces
-    gl.clearColor(0.1, 0.1, 0.1, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    gl.drawArrays(gl.TRIANGLES, 0, objData.vertexCount);
+    function computeEye(camera) {
+      const x = camera.distance * Math.cos(camera.elevation) * Math.sin(camera.azimuth);
+      const y = camera.distance * Math.sin(camera.elevation);
+      const z = camera.distance * Math.cos(camera.elevation) * Math.cos(camera.azimuth);
+      return [
+          camera.target[0] + x,
+          camera.target[1] + y,
+          camera.target[2] + z,
+      ];
+    }
+
+    function render() {
+        resizeCanvas(canvas);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        
+        const eye = computeEye(camera);
+
+        //PROJECTION MATRIX BUILDING
+        const fov = Math.PI / 4; // 45 degrees
+        const aspect = canvas.width / canvas.height;
+        const near = 0.1; // frustum near cutting plane
+        const far = 1000.0; // frustum far cutting plane
+        const projectionMatrix = m4.perspective(fov, aspect, near, far);
+
+        //VIEW MATRIX BUILDING
+        const up = [0, 1, 0]; // upper direction
+        const viewMatrix = m4.inverse(m4.lookAt(eye, camera.target, up)); // inverse matrix because we need the matrix of "the world" seen by the camera, not the camera
+
+        //MODEL MATRIX BUILDING
+        const scalingFactor = 0.5;
+        const modelMatrix = m4.scaling(scalingFactor, scalingFactor, scalingFactor); //scale model on the 3 axis
+
+        //MVP MATRIX BUILDING
+        const mvpMatrix = m4.multiply(projectionMatrix, m4.multiply(viewMatrix, modelMatrix));
+        gl.uniformMatrix4fv(matrixLocation, false, mvpMatrix); // write to GPU
+
+        //MODEL MATRIX (ONLY FOR PHONG)
+        const modelMatrixLocation = gl.getUniformLocation(program, 'u_modelMatrix');
+        gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix);
+
+        //LIGHT POSITION
+        const lightPositionLocation = gl.getUniformLocation(program, 'u_lightPosition');
+        const lightPosition = [2,3,4];
+        gl.uniform3fv(lightPositionLocation, lightPosition);
+
+        //CAMERA POSITION
+        const viewPositionLocation = gl.getUniformLocation(program, 'u_viewPosition');
+        gl.uniform3fv(viewPositionLocation, eye);
+
+        gl.enable(gl.DEPTH_TEST); //control depth faces
+        gl.clearColor(0.1, 0.1, 0.1, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        gl.drawArrays(gl.TRIANGLES, 0, objData.vertexCount);
+
+        requestAnimationFrame(render);
+    }
+
+    render();
+
 }
 
 main();
