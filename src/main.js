@@ -133,8 +133,15 @@ async function main() {
     const csvFileContent = await csvFileResponse.text();
     console.log("Csv File Loaded, length:", csvFileContent.length);
 
-    const synapses = parseConnectomeCsv(csvFileContent);
-    console.log("Synapses parsed:", synapses.length);
+    Connectome.init(csvFileContent);
+    Connectome.updateStimuli({ light: 0.8, temp: 0, hunger: 0 });
+    for (let i = 0; i < 100; i++) Connectome.step(0.016);
+    console.log("AVBL:", Connectome.getNeuronActivity('AVBL'));
+    console.log("AVAL:", Connectome.getNeuronActivity('AVAL'));
+    console.log("DB01:",  Connectome.getNeuronActivity('DB01'));
+    console.log("Wave params:", Connectome.getWaveParams());
+
+
 
     const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
 

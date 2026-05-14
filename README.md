@@ -92,6 +92,52 @@ La view matrix è l'inversa della `lookAt(eye, target, up)`, ricalcolata ogni fr
 
 L'elevation è vincolata all'intervallo $\left(-\frac{\pi}{2} + \varepsilon,\ \frac{\pi}{2} - \varepsilon\right)$ per evitare singolarità ai poli, dove `lookAt` diventa instabile (il vettore `up` e la direzione di vista diventano paralleli).
 
+### Connectome — Motore Neurale
+  
+Il comportamento locomotorio è guidato da una simulazione della rete sinaptica reale del *C. elegans*, caricata dal dataset OpenWorm (`herm_full_edgelist.csv`, 7378 sinapsi,
+448 neuroni).
+
+#### Struttura dati
+
+Ogni neurone ha due campi:
+- `activation` ∈ [0, 1] — livello di attivazione corrente
+- `spiked` — flag booleano, vero se ha superato la soglia nel frame corrente
+
+Le connessioni sono pre-calcolate in una `adjacencyMap`: un dizionario `nome → [{target, weight}]` costruito al caricamento. Iterare solo i neuroni che fanno spike
+(tipicamente 20–80 su 448) riduce il lavoro di circa 10×.
+
+#### Neuroni inibitori (GABAergici)
+
+I motoneuroni **DD01–DD06** e **VD01–VD13** sono *reciprocal inhibitors*: quando i muscoli dorsali si contraggono, i DD inibiscono quelli ventrali, e viceversa. Senza questa
+inibizione reciproca, dorso e ventre si contraggono insieme e non si produce alcuna onda locomotoria. Implementazione: i pesi delle sinapsi uscenti da questi neuroni vengono
+negati durante la costruzione dell'`adjacencyMap`.
+
+#### Loop di simulazione (`step`)
+
+Ogni frame esegue 5 fasi in sequenza:
+
+1. **Reset spike** — `spiked = false` su tutti i neuroni
+2. **Stimoli sensoriali** — `activation` dei neuroni sensori sovrascritta direttamente dal valore degli slider ambiente
+3. **Propagazione** — per ogni neurone con `activation > θ` (soglia), accumula sui target: $a_{target} \mathrel{+}= a_{source} \cdot w \cdot s$
+4. **Decadimento** — $a \leftarrow a \cdot D$ (neuroni non stimolati si spengono gradualmente)
+5. **Clamp** — $a \leftarrow \text{clamp}(a,\ 0,\ 1)$
+
+Parametri: soglia $\theta = 0.3$, decadimento $D = 0.9$, scala pesi $s = 0.002$.
+
+#### Output locomotorio (`getWaveParams`)
+
+Dopo ogni step, tre valori vengono estratti per lo shader:
+
+$$\text{forwardDrive} = \text{mean}(\text{AVBL, AVBR, PVCL, PVCR})$$
+$$\text{backwardDrive} = \text{mean}(\text{AVAL, AVAR, AVDL, AVDR, AVEL, AVER})$$
+$$\text{motorActivity} = \text{mean}(\text{DB01–DB07, VB01–VB11, DA01–DA09, VA01–VA12})$$
+
+$$\text{direction} = \text{sign}(\text{forwardDrive} - \text{backwardDrive})$$
+$$\text{amplitude} = \text{motorActivity}$$
+$$\text{freqTime} = \text{direction} \times (0.5 + \text{motorActivity} \times 2)$$
+
+`freqTime` con segno positivo produce un'onda da testa a coda (verme avanza); negativo la inverte. `0.5` implica movimento minimo costante
+
 ## References
 - Worm 3D model: [VirtualWorm](http://www.openworm.org/animatedworm.html) — WormBase / Caltech, MIT License
 - Connectome dataset: [OpenWorm / CElegansNeuroML](https://github.com/openworm/CElegansNeuroML) — MIT License

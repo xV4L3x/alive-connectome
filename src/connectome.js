@@ -16,3 +16,126 @@ function parseConnectomeCsv(text) {
     
     return synapses;
 }
+
+const Connectome = ( () => {
+    const TRESHOLD = 0.3; //reached this value a neuron "spikes" (activate)
+    const DECAY = 0.9; //gradually decay neuron activation over transfer
+    const WEIGHT_SCALE = 0.002; //normalize weights to meet spike requirements
+
+    const INHIBITORY_NEURONS = new Set([
+        'DD01','DD02','DD03','DD04','DD05','DD06',
+        'VD01','VD02','VD03','VD04','VD05','VD06','VD07',
+        'VD08','VD09','VD10','VD11','VD12','VD13'
+    ]); //neurons that subtract power instead of increasing it. TODO: da controllare che non sembrano tutti
+
+    let neurons = {};
+    let adjacencyMap = {};
+
+    let stimuli = { light: 0, temp: 0, hunger: 0};
+
+    function step(deltaTime) {
+        for(const name in neurons) {
+            neurons[name].spiked = false; //reset all spikes
+        }
+
+        const lightNeurons = ['AWCL', 'AWCR', 'ASEL', 'ASER'];
+        const tempNeurons  = ['AFDL', 'AFDR'];
+        const foodNeurons  = ['AWAL', 'AWAR', 'ADFL', 'ADFR'];
+
+        for (const n of lightNeurons) if (neurons[n]) neurons[n].activation = stimuli.light;
+        for (const n of tempNeurons) if (neurons[n]) neurons[n].activation = stimuli.temp;
+        for (const n of foodNeurons) if (neurons[n]) neurons[n].activation = stimuli.hunger;
+
+        //PROPAGATION
+        for (const name in neurons) {
+            const neuron = neurons[name];
+            if (neuron.activation <= TRESHOLD) continue;
+            neuron.spiked = true; //spike neuron if treshold reached
+
+            const conns = adjacencyMap[name];
+            if (!conns) continue;
+            for (const conn of conns) {
+                if (neurons[conn.target]) {
+                    neurons[conn.target].activation += neuron.activation * conn.weight * WEIGHT_SCALE; //propagate to connected neurons
+                }
+            }
+        }
+
+        //DECAY
+        for (const name in neurons) {
+            neurons[name].activation *= DECAY;
+        }
+
+        //[0,1]
+        for (const name in neurons) {
+            const a = neurons[name].activation;
+            neurons[name].activation = a < 0 ? 0 : a > 1 ? 1 : a;
+        }
+
+    }
+
+    function updateStimuli(state) {
+        stimuli = state;
+    }
+
+    function getNeuronActivity(name) {
+        return neurons[name] ? neurons[name].activation : 0;
+    }
+
+    function activateNeurons(names) {
+        for (const name of names) {
+            if (neurons[name]) neurons[name].activation = 1.0;
+        }
+    }
+
+    function getWaveParams() {
+        const avg = (names) => {
+            let sum = 0;
+            let count = 0;
+            for (const name of names) {
+                if (neurons[name]) {
+                    sum += neurons[name].activation;
+                    count++;
+                }
+            }
+            return count > 0 ? sum / count : 0;
+        }
+
+        const forwardDrive  = avg(['AVBL','AVBR','PVCL','PVCR']);
+        const backwardDrive = avg(['AVAL','AVAR','AVDL','AVDR','AVEL','AVER']);
+        const motorActivity = avg([
+            'DB01','DB02','DB03','DB04','DB05','DB06','DB07',
+            'VB01','VB02','VB03','VB04','VB05','VB06','VB07','VB08','VB09','VB10','VB11',
+            'DA01','DA02','DA03','DA04','DA05','DA06','DA07','DA08','DA09',
+            'VA01','VA02','VA03','VA04','VA05','VA06','VA07','VA08','VA09','VA10','VA11','VA12'
+        ]); 
+
+        const direction = Math.sign(forwardDrive - backwardDrive);
+        const amplitude = motorActivity;
+        const freqTime = direction * (0.5 + motorActivity * 2);
+
+        return {direction, amplitude, freqTime};
+    }
+
+
+    function init(csvText) {
+        const synapses = parseConnectomeCsv(csvText);
+        neurons = {};
+        adjacencyMap = {};
+
+        for(const s of synapses) {
+            //init map for each neuron
+            if (!neurons[s.source]) neurons[s.source] = { activation: 0, spiked: false };
+            if (!neurons[s.target]) neurons[s.target] = { activation: 0, spiked: false }; 
+
+            if (!adjacencyMap[s.source]) adjacencyMap[s.source] = [];
+
+            const sign = INHIBITORY_NEURONS.has(s.source) ? -1 : 1;
+            adjacencyMap[s.source].push({target: s.target, weight: sign * s.weight});
+        }
+
+        console.log("Connectome initialized. Neurons:", Object.keys(neurons).length);
+    }
+
+    return { init, step, updateStimuli, getNeuronActivity, activateNeurons, getWaveParams };
+})();
