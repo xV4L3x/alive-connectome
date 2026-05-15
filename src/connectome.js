@@ -110,7 +110,7 @@ const Connectome = ( () => {
             'VA01','VA02','VA03','VA04','VA05','VA06','VA07','VA08','VA09','VA10','VA11','VA12'
         ]); 
 
-        const direction = Math.sign(forwardDrive - backwardDrive);
+        const direction = forwardDrive >= backwardDrive ? 1 : -1;
         const amplitude = motorActivity;
         const freqTime = direction * (0.5 + motorActivity * 2);
 

@@ -138,6 +138,47 @@ $$\text{freqTime} = \text{direction} \times (0.5 + \text{motorActivity} \times 2
 
 `freqTime` con segno positivo produce un'onda da testa a coda (verme avanza); negativo la inverte. `0.5` implica movimento minimo costante
 
+### Collegamento Connectome → Shader 
+
+Ogni frame, prima del disegno, il loop di render:
+
+1. Calcola `deltaTime` dalla differenza tra timestamp RAF consecutivi
+2. Chiama `Connectome.step(deltaTime)` per far avanzare la simulazione neurale
+3. Legge `Connectome.getWaveParams()` → `{ amplitude, freqTime }`
+4. Passa i valori alla GPU come uniform float
+
+Le uniform passate allo shader ogni frame:
+
+| Uniform | Valore | Significato |
+|---|---|---|
+| `u_amplitude` | `amplitude * 0.15` | Ampiezza visiva scalata |
+| `u_freqTime` | `freqTime` | Velocità temporale onda (segno = direzione) |
+| `u_freqSpace` | `6.28` (costante) | Frequenza spaziale (~1 onda sul corpo) |
+| `u_time` | tempo cumulativo in secondi | Variabile temporale per il seno |
+| `u_bodyMin`, `u_bodyMax` | range Z del modello | Estensione del corpo per normalizzare `s` |
+
+
+### Animazione Sinusoidale del Corpo
+
+Il vertex shader deforma ogni vertice lungo l'asse X (laterale).
+L'asse del corpo del modello OBJ è **Z** (testa verso la camera).
+
+La posizione normalizzata lungo il corpo:
+
+$$s = \frac{z - z_{min}}{z_{max} - z_{min}} \in [0, 1]$$
+
+La deformazione laterale:
+
+$$\Delta x = A \cdot \sin(k \cdot s + \omega \cdot t)$$
+
+dove $A$ = `u_amplitude`, $k$ = `u_freqSpace`, $\omega$ = `u_freqTime`, $t$ = `u_time`.
+
+```glsl
+float s = (a_position.z - u_bodyMin) / (u_bodyMax - u_bodyMin);
+float wave = u_amplitude * sin(u_freqSpace * s + u_freqTime * u_time);
+vec4 deformed = vec4(a_position.x + wave, a_position.y, a_position.z, 1.0);
+```
+
 ## References
 - Worm 3D model: [VirtualWorm](http://www.openworm.org/animatedworm.html) — WormBase / Caltech, MIT License
 - Connectome dataset: [OpenWorm / CElegansNeuroML](https://github.com/openworm/CElegansNeuroML) — MIT License

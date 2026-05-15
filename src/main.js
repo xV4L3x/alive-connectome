@@ -20,10 +20,15 @@ const vertexShaderSource = `
     varying vec3 v_worldPos; //direction from surface to camera (specular effect)
 
     void main() {
-        gl_Position = u_matrix * a_position; //multiply all vertex before sending to screen
+
+        float s = (a_position.z - u_bodyMin) / (u_bodyMax - u_bodyMin); //normalize the y  in [0,1] 0=head, 1=tail
+        float wave = u_amplitude * sin(u_freqSpace * s + u_freqTime * u_time);
+        vec4 deformed = vec4(a_position.x + wave, a_position.y, a_position.z, 1.0);
+
+        gl_Position = u_matrix * deformed; //multiply all vertex before sending to screen
         v_color = a_color;
         v_normal = mat3(u_modelMatrix) * a_normal; //take only 3x3 matrix to not include translations
-        v_worldPos = (u_modelMatrix * a_position).xyz; //xyz only takes first 3 coordinates
+        v_worldPos = (u_modelMatrix * deformed).xyz; //xyz only takes first 3 coordinates
     }
 `;
 
@@ -190,6 +195,14 @@ async function main() {
     gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
 
 
+    //load wave values to GPU
+    let bodyMin = Infinity, bodyMax = -Infinity;
+    for (let i = 2; i < objData.positions.length; i += 3) {
+        const z = objData.positions[i];
+        if (z < bodyMin) bodyMin = z;
+        if (z > bodyMax) bodyMax = z;
+    }//calculate body boundaries (dynamic in case of change of size)
+
     const camera = createCamera();
     setupCameraControls(canvas, camera);
 
@@ -207,14 +220,13 @@ async function main() {
 
         Connectome.step(deltaTime);
         const {amplitude, freqTime} = Connectome.getWaveParams();
-        
-        //load wave values to GPU
-        gl.uniform1f(amplitudeLocation, amplitude);
+
+        gl.uniform1f(amplitudeLocation, amplitude * 0.5);
         gl.uniform1f(freqTimeLocation, freqTime);
         gl.uniform1f(freqSpaceLocation, 6.28); //body wave static for now (2π)
         gl.uniform1f(timeLocation, time);
-        gl.uniform1f(bodyMinLocation, -5.0); //TODO: fix with real body extension values
-        gl.uniform1f(bodyMaxLocation, 5.0); //TODO: fix with real body extension values
+        gl.uniform1f(bodyMinLocation, bodyMin); //TODO: fix with real body extension values
+        gl.uniform1f(bodyMaxLocation, bodyMax); //TODO: fix with real body extension values
 
 
         resizeCanvas(canvas);
@@ -263,7 +275,7 @@ async function main() {
         requestAnimationFrame(render);
     }
 
-    render();
+    requestAnimationFrame(render);
 }
 
 main();
