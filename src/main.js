@@ -8,6 +8,13 @@ const vertexShaderSource = `
     uniform mat4 u_matrix;
     uniform mat4 u_modelMatrix;
 
+    uniform float u_amplitude; //wave amplitude
+    uniform float u_freqTime; //wave frequency (sign implies direction)
+    uniform float u_freqSpace; //worm movement wave frequency
+    uniform float u_time; //time from start
+    uniform float u_bodyMin; //body positions to normalize movement over body
+    uniform float u_bodyMax;
+
     varying vec4 v_color; //color to send to fragment
     varying vec3 v_normal;
     varying vec3 v_worldPos; //direction from surface to camera (specular effect)
@@ -135,17 +142,17 @@ async function main() {
 
     Connectome.init(csvFileContent);
     Connectome.updateStimuli({ light: 0.8, temp: 0, hunger: 0 });
-    for (let i = 0; i < 100; i++) Connectome.step(0.016);
-    console.log("AVBL:", Connectome.getNeuronActivity('AVBL'));
-    console.log("AVAL:", Connectome.getNeuronActivity('AVAL'));
-    console.log("DB01:",  Connectome.getNeuronActivity('DB01'));
-    console.log("Wave params:", Connectome.getWaveParams());
-
-
-
+    
     const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
 
     const matrixLocation = gl.getUniformLocation(program, 'u_matrix'); //get Model View Projection matrix address
+
+    const amplitudeLocation = gl.getUniformLocation(program, 'u_amplitude');
+    const freqTimeLocation = gl.getUniformLocation(program, 'u_freqTime');
+    const freqSpaceLocation = gl.getUniformLocation(program, 'u_freqSpace');
+    const timeLocation = gl.getUniformLocation(program, 'u_time');
+    const bodyMinLocation = gl.getUniformLocation(program, 'u_bodyMin');
+    const bodyMaxLocation = gl.getUniformLocation(program, 'u_bodyMax');
 
     const mtlData = parseMTL(mtlFileContent);
     console.log("Materials Loaded From Mtl:", mtlData);
@@ -186,7 +193,30 @@ async function main() {
     const camera = createCamera();
     setupCameraControls(canvas, camera);
 
-    function render() {
+    let time = 0;
+    let lastTimestamp = null;
+
+    function render(timestamp) {
+
+        if (lastTimestamp === null) {
+            lastTimestamp = timestamp; //init timestamp
+        } 
+        const deltaTime = (timestamp - lastTimestamp) / 1000; //convert to seconds
+        lastTimestamp = timestamp;
+        time += deltaTime;
+
+        Connectome.step(deltaTime);
+        const {amplitude, freqTime} = Connectome.getWaveParams();
+        
+        //load wave values to GPU
+        gl.uniform1f(amplitudeLocation, amplitude);
+        gl.uniform1f(freqTimeLocation, freqTime);
+        gl.uniform1f(freqSpaceLocation, 6.28); //body wave static for now (2π)
+        gl.uniform1f(timeLocation, time);
+        gl.uniform1f(bodyMinLocation, -5.0); //TODO: fix with real body extension values
+        gl.uniform1f(bodyMaxLocation, 5.0); //TODO: fix with real body extension values
+
+
         resizeCanvas(canvas);
         gl.viewport(0, 0, canvas.width, canvas.height);
         
