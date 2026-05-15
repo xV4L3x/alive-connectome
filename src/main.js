@@ -47,9 +47,8 @@ async function main() {
     Connectome.init(csvFileContent);
     
     const worm = initWorm(gl, objData);
-    console.log('yMin:', worm.yMin, '→ offset:', -worm.yMin * 0.5);
-
     const plane = await initPlane(gl);
+    const tank = await initTank(gl);
 
     gl.enable(gl.DEPTH_TEST); //control depth faces
     gl.clearColor(0.1, 0.1, 0.1, 1.0);
@@ -120,6 +119,10 @@ async function main() {
             eye,
             lightPosition: [2, 3, 4],
         });
+
+        drawTank(gl, tank, {
+            viewProjectionMatrix
+        })
 
 
         requestAnimationFrame(render);

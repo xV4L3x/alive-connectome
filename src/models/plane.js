@@ -53,9 +53,12 @@ const planeFragmentShaderSource = `
     }
 `;
 
+const PLANE_EXTENSION = 5;
+
+//XYZ: x -> side, y -> vertical, z -> depth
 const planePositions = new Float32Array([
-    -3, 0, -3,    -3, 0,  3,    3, 0, -3,
-    -3, 0,  3,     3, 0,  3,    3, 0, -3,
+    -PLANE_EXTENSION, 0, -PLANE_EXTENSION,    -PLANE_EXTENSION, 0,  PLANE_EXTENSION,    PLANE_EXTENSION, 0, -PLANE_EXTENSION,
+    -PLANE_EXTENSION, 0,  PLANE_EXTENSION,     PLANE_EXTENSION, 0,  PLANE_EXTENSION,    PLANE_EXTENSION, 0, -PLANE_EXTENSION,
 ]);
 
 const planeNormals = new Float32Array([
