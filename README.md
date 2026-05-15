@@ -151,12 +151,30 @@ Le uniform passate allo shader ogni frame:
 
 | Uniform | Valore | Significato |
 |---|---|---|
-| `u_amplitude` | `amplitude * 0.15` | Ampiezza visiva scalata |
+| `u_amplitude` | `amplitude * 0.5` | Ampiezza visiva scalata |
 | `u_freqTime` | `freqTime` | Velocità temporale onda (segno = direzione) |
 | `u_freqSpace` | `6.28` (costante) | Frequenza spaziale (~1 onda sul corpo) |
 | `u_time` | tempo cumulativo in secondi | Variabile temporale per il seno |
 | `u_bodyMin`, `u_bodyMax` | range Z del modello | Estensione del corpo per normalizzare `s` |
 
+
+### Pannello di Controllo e Stimoli Ambientali
+
+Un pannello `dat.GUI` espone tre slider in tempo reale. I valori vengono passati a `Connectome.updateStimuli()` ogni frame prima di `step()`.
+
+| Slider | Range | Neuroni target |
+|---|---|---|
+| Luce | [0, 1] | AVBL, AVBR, PVCL, PVCR (forward) / AVAL, AVAR, AVDL, AVDR (backward) |
+| Temperatura | [0, 1] | AFDL, AFDR |
+| Fame | [0, 1] | AWAL, AWAR, ADFL, ADFR |
+
+**Perché i neuroni di comando e non quelli sensoriali:**
+L'iniezione diretta sui neuroni sensoriali (AWC, ASE) non produce effetti visibili: il segnale si attenua su più hop prima di raggiungere i motoneuroni, mentre il circuito motorio si auto-sostiene tramite loop di feedback. I neuroni di comando (AVB per il forward, AVA per il backward) pilotano direttamente i motoneuroni e producono una risposta immediata.
+
+Il comportamento osservabile:
+
+$$\text{luce} \geq 0.5 \Rightarrow \omega > 0 \Rightarrow \text{verme avanza}$$
+$$\text{luce} < 0.5 \Rightarrow \omega < 0 \Rightarrow \text{verme arretra}$$
 
 ### Animazione Sinusoidale del Corpo
 

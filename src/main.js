@@ -146,7 +146,6 @@ async function main() {
     console.log("Csv File Loaded, length:", csvFileContent.length);
 
     Connectome.init(csvFileContent);
-    Connectome.updateStimuli({ light: 0.8, temp: 0, hunger: 0 });
     
     const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
 
@@ -206,6 +205,18 @@ async function main() {
     const camera = createCamera();
     setupCameraControls(canvas, camera);
 
+    const params = {
+        light:   0.0,
+        temp:    0.0,
+        hunger:  0.0,
+    };
+
+    const gui = new dat.GUI();
+    gui.add(params, 'light',  0, 1).step(0.01).name('Light');
+    gui.add(params, 'temp',   0, 1).step(0.01).name('Temperature');
+    gui.add(params, 'hunger', 0, 1).step(0.01).name('Hunger');
+
+
     let time = 0;
     let lastTimestamp = null;
 
@@ -218,6 +229,7 @@ async function main() {
         lastTimestamp = timestamp;
         time += deltaTime;
 
+        Connectome.updateStimuli(params);
         Connectome.step(deltaTime);
         const {amplitude, freqTime} = Connectome.getWaveParams();
 
@@ -227,7 +239,6 @@ async function main() {
         gl.uniform1f(timeLocation, time);
         gl.uniform1f(bodyMinLocation, bodyMin); //TODO: fix with real body extension values
         gl.uniform1f(bodyMaxLocation, bodyMax); //TODO: fix with real body extension values
-
 
         resizeCanvas(canvas);
         gl.viewport(0, 0, canvas.width, canvas.height);

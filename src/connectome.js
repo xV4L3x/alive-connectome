@@ -38,13 +38,22 @@ const Connectome = ( () => {
             neurons[name].spiked = false; //reset all spikes
         }
 
-        const lightNeurons = ['AWCL', 'AWCR', 'ASEL', 'ASER'];
-        const tempNeurons  = ['AFDL', 'AFDR'];
-        const foodNeurons  = ['AWAL', 'AWAR', 'ADFL', 'ADFR'];
+        const forwardNeurons  = ['AVBL', 'AVBR', 'PVCL', 'PVCR'];
+        const backwardNeurons = ['AVAL', 'AVAR', 'AVDL', 'AVDR'];
+        const tempNeurons     = ['AFDL', 'AFDR'];
+        const foodNeurons     = ['AWAL', 'AWAR', 'ADFL', 'ADFR'];
 
-        for (const n of lightNeurons) if (neurons[n]) neurons[n].activation = stimuli.light;
+        if (stimuli.light >= 0.5) {
+            for (const n of forwardNeurons)  if (neurons[n]) neurons[n].activation = stimuli.light;
+            for (const n of backwardNeurons) if (neurons[n]) neurons[n].activation = 0;
+        } else {
+            for (const n of backwardNeurons) if (neurons[n]) neurons[n].activation = 1 - stimuli.light;
+            for (const n of forwardNeurons)  if (neurons[n]) neurons[n].activation = 0;
+        }
+
         for (const n of tempNeurons) if (neurons[n]) neurons[n].activation = stimuli.temp;
         for (const n of foodNeurons) if (neurons[n]) neurons[n].activation = stimuli.hunger;
+
 
         //PROPAGATION
         for (const name in neurons) {
