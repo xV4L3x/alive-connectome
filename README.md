@@ -197,6 +197,36 @@ float wave = u_amplitude * sin(u_freqSpace * s + u_freqTime * u_time);
 vec4 deformed = vec4(a_position.x + wave, a_position.y, a_position.z, 1.0);
 ```
 
+### Terreno della Teca con Texture
+
+Il piano del terreno è un rettangolo piatto (2 triangoli, 6 vertici) sul piano XZ a Y=0. Ogni vertice porta un attributo aggiuntivo: la **coordinata UV** $(u, v) \in [0,1]^2$, che indica quale punto della texture corrisponde a quel vertice. La GPU interpola le coordinate UV tra i vertici nello stesso modo in cui interpola colori e normali.
+
+Pipeline di caricamento della texture:
+
+```javascript
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+gl.generateMipmap(gl.TEXTURE_2D);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+```
+
+- `texImage2D` — copia i pixel dell'immagine sulla GPU
+- `generateMipmap` — genera versioni ridotte della texture per le viste a distanza (evita aliasing)
+- `REPEAT` — la texture si ripete (tiling) quando le UV escono da $[0,1]$
+
+Nel fragment shader il colore viene letto con `texture2D` e sostituisce `v_color.rgb` nelle equazioni Phong:
+
+```glsl
+uniform sampler2D u_texture;
+vec3 color = texture2D(u_texture, v_texCoord).rgb;
+```
+
+**Posizionamento dinamico:** il verme viene posizionato sopra il terreno calcolando il vertice più basso $y_{min}$ del modello OBJ e traslando di conseguenza:
+
+$$\Delta y = -y_{min} \cdot s$$
+
+dove $s$ è il fattore di scala. Garantisce che il punto più basso del verme sia a Y=0 indipendentemente dal modello caricato.
+
 ## References
 - Worm 3D model: [VirtualWorm](http://www.openworm.org/animatedworm.html) — WormBase / Caltech, MIT License
 - Connectome dataset: [OpenWorm / CElegansNeuroML](https://github.com/openworm/CElegansNeuroML) — MIT License

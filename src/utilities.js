@@ -92,3 +92,44 @@ function parseMTL(text) {
     return materials;
 }
 
+/**
+ * 
+ * @param {WebGLRenderingContext} gl 
+ * @param {string} vertexSource 
+ * @param {string} fragmentSource 
+ */
+function createShaderProgram(gl, vertexSource, fragmentSource) {
+    // create and compile vertex shader
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertexShader, vertexSource);
+    gl.compileShader(vertexShader);
+    if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+        console.error('Vertex Shader Error: ', gl.getShaderInfoLog(vertexShader));
+        return null;
+    }
+    console.log("Vertex Shader Successfully Compiled");
+
+    //create and compile fragment shader
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragmentShader, fragmentSource);
+    gl.compileShader(fragmentShader);
+    if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+        console.error('Fragment Shader Error: ', gl.getShaderInfoLog(fragmentShader));
+        return null;
+    }
+    console.log("Fragment Shader Successfully Compiled");
+
+    //create program and link shaders
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error("Link Program Error: ", gl.getProgramInfoLog(program));
+        return null;
+    }
+    console.log("Program Created Successfully")
+
+    return program;
+}
+
