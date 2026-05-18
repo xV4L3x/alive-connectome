@@ -157,6 +157,7 @@ function createWormInstance(position = [0,0,0], heading = 0) {
 const TOUCH_STRENGTH = 4.0;
 const TOUCH_DURATION = 1.5;
 
+
 function updateWorm(wormInstance, deltaTime, stimuli) {
     wormInstance.connectome.updateStimuli(stimuli);
     wormInstance.connectome.step(deltaTime);
@@ -200,7 +201,6 @@ function updateWorm(wormInstance, deltaTime, stimuli) {
 }
 
 
-const TOUCH_TIMER = 5;
 function checkWallCollision(wormInstance, direction) {
     const pos = wormInstance.position;
     let hit = false;
@@ -224,8 +224,45 @@ function checkWallCollision(wormInstance, direction) {
     }
 
     if (hit) {
-        wormInstance.touchTimer     = TOUCH_TIMER;
+        wormInstance.touchTimer = TOUCH_DURATION;
         wormInstance.touchDirection = direction > 0 ? -1 : 1;
+    }
+}
+
+function checkWormCollisions(worms) {
+    for (let i = 0; i < worms.length; i++) {
+        for (let j = i + 1; j < worms.length; j++) {
+            const a = worms[i];
+            const b = worms[j];
+
+            const dx = a.position[0] - b.position[0];
+            const dz = a.position[2] - b.position[2];
+            const d = Math.sqrt(dx*dx + dz*dz);
+            const minD = WORM_RADIUS * 2;
+
+            if (d >= minD || d === 0) continue;
+
+            const overlap = minD - d;
+
+            //separation direction (normalization)
+            const sdx = dx / d;
+            const sdz = dz / d;
+
+            //physical separation
+            a.position[0] += sdx * overlap * 0.5;
+            a.position[2] += sdz * overlap * 0.5;
+            b.position[0] -= sdx * overlap * 0.5;
+            b.position[2] -= sdz * overlap * 0.5;
+
+
+            //touch head or tail events based on direction
+            const dirA = a.speed >= 0 ? 1 : -1;
+            const dirB = b.speed >= 0 ? 1 : -1;
+            a.touchTimer     = TOUCH_DURATION;
+            a.touchDirection = dirA > 0 ? -1 : 1;
+            b.touchTimer     = TOUCH_DURATION;
+            b.touchDirection = dirB > 0 ? -1 : 1;
+        }
     }
 }
 

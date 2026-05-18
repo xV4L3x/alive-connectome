@@ -253,6 +253,30 @@ if (touchTimer > 0) {
 
 Con `TOUCH_STRENGTH = 4.0` e `TOUCH_DURATION = 1.5` s, il bias sovrasta temporaneamente il drive del connectome per circa un secondo e mezzo, forzando l'inversione di marcia prima che il timer scada.
 
+**Collisioni verme-verme:**
+
+Ogni coppia $(i, j)$ con $i < j$ viene testata ogni frame in `checkWormCollisions(worms)`, chiamata dopo aver aggiornato tutti i vermi e prima di disegnarli. L'ordine è importante: se aggiornamento e disegno fossero nello stesso loop, alcuni vermi verrebbero renderizzati prima che le collisioni siano risolte.
+
+La sovrapposizione tra due bounding sphere è:
+
+$$\text{overlap} = 2r - \|\mathbf{p}_A - \mathbf{p}_B\|_{XZ}$$
+
+dove $r$ = `WORM_RADIUS = 0.8`. La distanza è calcolata solo nel piano XZ (i vermi si muovono sul piano orizzontale). Se $\text{overlap} > 0$ si eseguono due operazioni in parallelo nello stesso frame:
+
+**1. Separazione fisica** — i due vermi vengono spostati in direzioni opposte di metà overlap ciascuno, lungo il vettore normalizzato che li separa:
+
+$$\hat{n} = \frac{\mathbf{p}_A - \mathbf{p}_B}{\|\mathbf{p}_A - \mathbf{p}_B\|} \qquad \mathbf{p}_A \mathrel{+}= \hat{n} \cdot \frac{\text{overlap}}{2} \qquad \mathbf{p}_B \mathrel{-}= \hat{n} \cdot \frac{\text{overlap}}{2}$$
+
+La normalizzazione divide `dx` e `dz` per la distanza, ottenendo un vettore di lunghezza 1 nella direzione giusta — moltiplicando poi per `overlap/2` si ottiene uno spostamento di esattamente quella grandezza indipendentemente da quanto i vermi siano lontani.
+
+**2. Touch bias** — il segno di `speed` determina quale estremità ha urtato: se il verme stava andando avanti (`speed ≥ 0`), ha urtato con la testa e il bias lo spinge indietro; se stava andando indietro, ha urtato con la coda e il bias lo spinge avanti.
+
+```javascript
+const dirA = a.speed >= 0 ? 1 : -1;
+a.touchTimer     = TOUCH_DURATION;
+a.touchDirection = dirA > 0 ? -1 : 1;  // testa → indietro, coda → avanti
+```
+
 ### Animazione Sinusoidale del Corpo
 
 Il vertex shader deforma ogni vertice lungo l'asse X (laterale).

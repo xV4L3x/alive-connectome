@@ -168,8 +168,12 @@ async function main() {
 
         for (const wormInstance of worms) {
             updateWorm(wormInstance, deltaTime, params);
+        }
+        checkWormCollisions(worms);
+        for (const wormInstance of worms) {
             drawWorm(gl, wormGPU, wormInstance, { viewProjectionMatrix, eye, time });
         }
+
 
         if (worms.length > 0) {
             const c = worms[0].connectome;
