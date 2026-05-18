@@ -23,33 +23,44 @@ const cabinetFragmentShaderSource = `
     varying vec3 v_normal;
     varying vec3 v_worldPos;
 
-    uniform vec3 u_lightPosition;
+    uniform vec3 u_lightPositions[4];
+    uniform float u_lightIntensities[4];
     uniform vec3 u_viewPosition;
 
     void main() {
         vec3 steelColor = vec3(0.6, 0.65, 0.7);  // grigio freddo metallico
 
-        vec3 normal   = normalize(v_normal);
-        vec3 lightDir = normalize(u_lightPosition - v_worldPos);
-        vec3 viewDir  = normalize(u_viewPosition  - v_worldPos);
+        vec3 normal  = normalize(v_normal);
+        vec3 viewDir = normalize(u_viewPosition  - v_worldPos);
 
-        vec3 ambient  = 0.3 * steelColor;
+        //ambient
+        float ambientStrength = 0.4;
+        vec3 ambient = ambientStrength * steelColor;
 
-        float diff    = max(dot(normal, lightDir), 0.0);
-        vec3 diffuse  = diff * steelColor;
+        float specularStrength = 0.8;
 
-        vec3 reflectDir = reflect(-lightDir, normal);
-        float spec      = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
-        vec3 specular   = 0.8 * spec * vec3(1.0);
+        for (int i = 0; i < 4; i++) {
+            vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos);
 
-        gl_FragColor = vec4(ambient + diffuse + specular, 1.0);
+            //diffuse
+            float diff = max(dot(normal, lightDir), 0.0);
+            vec3 diffuse = diff * steelColor * u_lightIntensities[i]; 
+            
+            //specular
+            vec3 reflectDir = reflect(-lightDir, normal);
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
+            vec3 specular = specularStrength * spec * vec3(1.0) * u_lightIntensities[i];
+        
+            ambient += diffuse + specular;
+        }
+
+        gl_FragColor = vec4(ambient, 1.0);
     }
 `;
 
-
-const CABINET_WIDTH = 12;    // a bit larger than the tank
-const CABINET_DEPTH = 12;    // a bit deeper than the tank
-const CABINET_HEIGHT = 10;    // from 0 to h
+const CABINET_WIDTH = PLANE_EXTENSION + 4; // a bit larger than the tank
+const CABINET_DEPTH = PLANE_EXTENSION + 4; // a bit deeper than the tank
+const CABINET_HEIGHT = 10; // from 0 to h
 
 const cabinetCorners = {
     // top (Y = 0)
@@ -133,7 +144,8 @@ function initCabinet(gl) {
         locations: {
             matrix: gl.getUniformLocation(program, 'u_matrix'),
             modelMatrix: gl.getUniformLocation(program, 'u_modelMatrix'),
-            lightPosition: gl.getUniformLocation(program, 'u_lightPosition'),
+            lightPositions: gl.getUniformLocation(program, 'u_lightPositions'),
+            lightIntensities: gl.getUniformLocation(program, 'u_lightIntensities'),
             viewPosition: gl.getUniformLocation(program, 'u_viewPosition'),
             position: gl.getAttribLocation(program, 'a_position'),
             normal: gl.getAttribLocation(program, 'a_normal'),
@@ -142,7 +154,7 @@ function initCabinet(gl) {
 }
 
 
-function drawCabinet(gl, cabinet, { viewProjectionMatrix, eye, lightPosition }) {
+function drawCabinet(gl, cabinet, { viewProjectionMatrix, eye }) {
     gl.useProgram(cabinet.program);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, cabinet.positionBuffer);
@@ -156,9 +168,10 @@ function drawCabinet(gl, cabinet, { viewProjectionMatrix, eye, lightPosition }) 
     const cabinetModelMatrix = m4.translation(0, -0.01, 0);
     const cabinetMvpMatrix = m4.multiply(viewProjectionMatrix, cabinetModelMatrix);
 
-    gl.uniformMatrix4fv(cabinet.locations.matrix,      false, cabinetMvpMatrix);
+    gl.uniformMatrix4fv(cabinet.locations.matrix, false, cabinetMvpMatrix);
     gl.uniformMatrix4fv(cabinet.locations.modelMatrix, false, cabinetModelMatrix);
-    gl.uniform3fv(cabinet.locations.lightPosition, lightPosition);
+    gl.uniform3fv(cabinet.locations.lightPositions, Lights.getPositionsFlat());
+    gl.uniform1fv(cabinet.locations.lightIntensities, Lights.getIntensities());
     gl.uniform3fv(cabinet.locations.viewPosition,  eye);
 
     gl.drawArrays(gl.TRIANGLES, 0, cabinet.vertexCount);

@@ -169,5 +169,19 @@ function raySphereIntersect(ray, center, radius) {
     const b = ox*ray.dir[0] + oy*ray.dir[1] + oz*ray.dir[2];
     const c = ox*ox + oy*oy + oz*oz - radius*radius;
     return (b*b - c) >= 0;
-}   
+} 
+
+/**
+ * 
+ * @param {HTMLCanvasElement} canvas 
+ */
+function resizeCanvas(canvas) {
+    const displayWidth  = Math.round(canvas.clientWidth  * window.devicePixelRatio);
+    const displayHeight = Math.round(canvas.clientHeight * window.devicePixelRatio);
+
+    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+      canvas.width  = displayWidth;
+      canvas.height = displayHeight;
+    }
+}
 

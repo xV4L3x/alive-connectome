@@ -98,3 +98,15 @@ function setupCameraControls(canvas, camera, getEnabled) {
     canvas.addEventListener('mouseup',    () => { isDragging = false; });
     canvas.addEventListener('mouseleave', () => { isDragging = false; });
 }
+
+function resolveCamera(camera, cameraMode, selectedWorm) {
+    if (cameraMode === 1 && selectedWorm) {
+        const r = computeThirdPerson(selectedWorm);
+        return { eye: r.eye, lookTarget: r.target };
+    }
+    if (cameraMode === 2 && selectedWorm) {
+        const r = computeFirstPerson(selectedWorm);
+        return { eye: r.eye, lookTarget: r.target };
+    }
+    return { eye: computeEye(camera), lookTarget: camera.target };
+}
