@@ -320,6 +320,155 @@ Quando `nutrients = 1.0` il disco ha raggio massimo `FOOD_RADIUS = 0.4`; quando 
 
 **Z-offset:** il disco è posizionato a Y=0.01 invece di Y=0 per evitare z-fighting con il terreno — senza questo offset il depth buffer non sa quale superficie disegnare sopra e produce flickering.
 
+### Sistema di Fame Progressiva
+
+Ogni verme tiene uno stato interno di fame indipendente dagli altri, distinto dal segnale sensoriale passato al connectome:
+
+- `wormInstance.hunger` ∈ [0, 1] — riserva energetica interna: 0 = sazio, 1 = morte imminente
+- `stimuli.hunger` — segnale chimico che arriva ai neuroni AWAL/AWAR/ADFL/ADFR: codifica quanto cibo è percepito nell'ambiente
+
+La separazione è deliberata: un verme molto affamato è più reattivo ai gradienti chimici del cibo (chemotassi più aggressiva), ma la fame interna e il segnale sensoriale crescono con logiche diverse.
+
+**Aggiornamento della fame ogni frame:**
+
+$$\text{hunger} \leftarrow \min\!\left(1,\ \text{hunger} + k_h \cdot \Delta t\right)$$
+
+con $k_h$ = `HUNGER_RATE = 0.02` s⁻¹. In assenza di cibo il verme raggiunge hunger = 1 in circa 50 secondi.
+
+**Iniezione nel connectome:**
+
+La fame interna di ogni verme viene fusa con gli stimoli ambientali globali (luce, temperatura) prima di essere passata al connectome:
+
+```javascript
+wormInstance.connectome.updateStimuli({
+    light:  stimuli.light,
+    temp:   stimuli.temp,
+    hunger: wormInstance.hunger
+});
+```
+
+Gli stimoli `light` e `temp` sono globali — controllati dagli slider del pannello e uguali per tutti i vermi nella scena. La `hunger` è invece locale: ogni verme ha il proprio stato di fame indipendente, passato come segnale ai neuroni sensoriali del cibo. Questo fa sì che un verme affamato attivi i neuroni AWAL/AWAR/ADFL/ADFR con maggiore intensità, aumentando il bias verso il cibo nella sterzata (vedi sezione Chemotassi).
+
+**Soglia chemotassi:**
+
+Il bias direzionale verso il cibo si attiva solo quando `hunger > 0.5`. Il coefficiente di intensità vale:
+
+$$\text{bias} = (\text{hunger} - 0.5) \cdot 2 \in [0,\ 1]$$
+
+Sotto la soglia il verme esplora casualmente; sopra vira progressivamente verso la fonte di cibo più vicina.
+
+---
+
+### Selezione Verme con Ray Casting
+
+Per selezionare un verme con il mouse si costruisce un raggio nel spazio 3D partendo dalle coordinate del mouse sullo schermo, e si testa l'intersezione con la bounding sphere di ogni verme.
+
+**1. Conversione da pixel a NDC (Normalized Device Coordinates)**
+
+Le coordinate del mouse $\bigl(x_m,\ y_m\bigr)$ in pixel vengono convertite nel sistema NDC $[-1, 1]^2$:
+
+$$x_{NDC} = \frac{x_m}{w_{canvas}} \cdot 2 - 1$$
+
+$$y_{NDC} = -\!\left(\frac{y_m}{h_{canvas}} \cdot 2 - 1\right)$$
+
+L'asse Y è invertito perché nel DOM le coordinate crescono verso il basso, mentre in NDC (e OpenGL) crescono verso l'alto.
+
+**2. Unprojection — da NDC a spazio mondo**
+
+La pipeline di rendering trasforma i punti mondo → clip → NDC tramite la matrice $\mathbf{VP} = \mathbf{P} \cdot \mathbf{V}$. Per costruire il raggio è necessario fare l'operazione inversa. Dato un punto in coordinate omogenee NDC:
+
+$$\mathbf{p}_{clip} = \begin{pmatrix} x_{NDC} \\ y_{NDC} \\ z_{NDC} \\ 1 \end{pmatrix}$$
+
+la sua posizione nel spazio mondo si ottiene applicando la matrice inversa $\mathbf{VP}^{-1}$ e dividendo per la componente $w$ (divisione prospettica inversa):
+
+$$\tilde{\mathbf{p}}_{world} = \mathbf{VP}^{-1} \cdot \mathbf{p}_{clip} = \begin{pmatrix} \tilde{x} \\ \tilde{y} \\ \tilde{z} \\ \tilde{w} \end{pmatrix} \qquad \Rightarrow \qquad \mathbf{p}_{world} = \begin{pmatrix} \tilde{x}/\tilde{w} \\ \tilde{y}/\tilde{w} \\ \tilde{z}/\tilde{w} \end{pmatrix}$$
+
+La matrice $\mathbf{VP}^{-1}$ è calcolata una sola volta per frame con `m4.inverse(viewProjectionMatrix)`. La moltiplicazione è eseguita in forma espansa per rispettare il layout column-major di WebGL:
+
+```javascript
+function unproject(z) {
+    const v = [ndcX, ndcY, z, 1.0];
+    const x = M[0]*v[0] + M[4]*v[1] + M[8] *v[2] + M[12]*v[3];
+    const y = M[1]*v[0] + M[5]*v[1] + M[9] *v[2] + M[13]*v[3];
+    const z2= M[2]*v[0] + M[6]*v[1] + M[10]*v[2] + M[14]*v[3];
+    const w = M[3]*v[0] + M[7]*v[1] + M[11]*v[2] + M[15]*v[3];
+    return [x/w, y/w, z2/w];
+}
+```
+
+**3. Costruzione del raggio**
+
+Il raggio è definito da due punti sul frustum: il piano vicino ($z_{NDC} = -1$) e il piano lontano ($z_{NDC} = +1$):
+
+$$\mathbf{o} = \text{unproject}(-1) \qquad \mathbf{f} = \text{unproject}(+1)$$
+
+La direzione normalizzata del raggio è:
+
+$$\mathbf{d} = \frac{\mathbf{f} - \mathbf{o}}{\|\mathbf{f} - \mathbf{o}\|}$$
+
+Il raggio è quindi $\mathbf{r}(t) = \mathbf{o} + t\mathbf{d}$ con $t \geq 0$.
+
+**4. Test di intersezione raggio-sfera**
+
+Per ogni verme si definisce una bounding sphere con centro $\mathbf{c}$ e raggio $R = 1.2$. Il centro è spostato verso l'alto rispetto alla posizione del verme per coprire meglio il corpo (che si estende in altezza):
+
+$$\mathbf{c} = \bigl(p_x,\ p_y + 1.0,\ p_z\bigr)$$
+
+L'intersezione si ricava sostituendo l'equazione del raggio nell'equazione della sfera $|\mathbf{r}(t) - \mathbf{c}|^2 = R^2$:
+
+$$|(\mathbf{o} - \mathbf{c}) + t\mathbf{d}|^2 = R^2$$
+
+Espandendo, con $\mathbf{oc} = \mathbf{o} - \mathbf{c}$:
+
+$$t^2\underbrace{|\mathbf{d}|^2}_{=1} + 2t\,(\mathbf{d} \cdot \mathbf{oc}) + |\mathbf{oc}|^2 - R^2 = 0$$
+
+Poiché $\mathbf{d}$ è normalizzato $|\mathbf{d}|^2 = 1$, si ottiene un'equazione di secondo grado in $t$:
+
+$$t^2 + 2bt + c = 0 \qquad \text{con } b = \mathbf{d} \cdot \mathbf{oc},\ c = |\mathbf{oc}|^2 - R^2$$
+
+Il discriminante (diviso per 4) è:
+
+$$\Delta = b^2 - c$$
+
+- $\Delta < 0$: nessuna intersezione (raggio passa fuori dalla sfera)
+- $\Delta \geq 0$: il raggio colpisce la sfera
+
+Le soluzioni sarebbero $t_{1,2} = -b \pm \sqrt{\Delta}$, ma per il picking basta verificare il segno di $\Delta$ — non serve calcolare i punti di intersezione effettivi.
+
+```javascript
+function raySphereIntersect(ray, center, radius) {
+    const ox = ray.origin[0] - center[0];
+    const oy = ray.origin[1] - center[1];
+    const oz = ray.origin[2] - center[2];
+    const b = ox*ray.dir[0] + oy*ray.dir[1] + oz*ray.dir[2];
+    const c = ox*ox + oy*oy + oz*oz - radius*radius;
+    return (b*b - c) >= 0;
+}
+```
+
+**5. Selezione del verme più vicino**
+
+Tra tutti i vermi la cui sfera interseca il raggio, viene scelto quello più vicino alla camera, confrontando le distanze quadrate (evita una radice quadrata per frame):
+
+$$d^2 = (p_x - e_x)^2 + (p_z - e_z)^2$$
+
+Il confronto avviene solo sul piano XZ perché i vermi si trovano tutti alla stessa altezza e la profondità verticale non è discriminante.
+
+**6. Feedback visivo e selezione**
+
+Il verme sotto il cursore (`hoveredWorm`) è evidenziato con un rendering arancione semitrasparente — implementato con un'unica uniform `u_isOutline` nel fragment shader, che bypassa il calcolo Phong e restituisce un colore fisso:
+
+```glsl
+if (u_isOutline > 0.5) {
+    gl_FragColor = vec4(1.0, 0.5, 0.0, 0.65);
+    return;
+}
+```
+
+Il cursore cambia da freccia a puntatore (`cursor: pointer`) quando `hoveredWorm` è non nullo. Un click fissa la selezione su `selectedWorm` e apre il pannello laterale con l'attività neurale in tempo reale.
+
+---
+
 ### Animazione Sinusoidale del Corpo
 
 Il vertex shader deforma ogni vertice lungo l'asse X (laterale).

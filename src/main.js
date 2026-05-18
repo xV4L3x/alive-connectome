@@ -82,14 +82,12 @@ async function main() {
     const params = {
         light:   0.0,
         temp:    0.0,
-        hunger:  0.0,
     };
 
     //GUI
     const gui = new dat.GUI();
     gui.add(params, 'light',  0, 1).step(0.01).name('Light');
     gui.add(params, 'temp',   0, 1).step(0.01).name('Temperature');
-    gui.add(params, 'hunger', 0, 1).step(0.01).name('Hunger');
 
     const lightsFolder = gui.addFolder('Lights');
     const lightIntensities = Lights.getIntensitiesRaw();
@@ -159,6 +157,7 @@ async function main() {
         motionFolder.add(info, 'amplitude', 0,  1).step(0.01).listen();
         motionFolder.add(info, 'direction', -1, 1).step(1).listen();
         motionFolder.add(info, 'speed', 0,  2).step(0.01).listen();
+        motionFolder.add(selectionGui._worm, 'hunger', 0, 1).step(0.01).listen().name('Hunger');
         motionFolder.open();
 
         selectionGui.add({

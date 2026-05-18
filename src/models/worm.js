@@ -88,6 +88,7 @@ const PIROUETTE_MAX = 8.0; // max seconds between rotation
 const FOOD_TURN_STRENGTH = 1.5;
 const TOUCH_STRENGTH = 4.0;
 const TOUCH_DURATION = 1.5;
+const HUNGER_RATE = 0.02;
 
 function initWorm(gl, objData) {
     const program = createShaderProgram(gl, wormVertexShaderSource, wormFragmentShaderSource);
@@ -156,6 +157,7 @@ function createWormInstance(position = [0,0,0], heading = 0) {
         touchTimer:     0, // seconds of touch effect
         touchDirection: 0,   // +1 push forward (tail touch). -1 push backwards (head touch)
         speed: 0,
+        hunger: 0,
         pirouetteTimer: Math.random() * PIROUETTE_MAX,  // random initial offset
         connectome: Connectome.createInstance(),
         alive: true
@@ -163,7 +165,9 @@ function createWormInstance(position = [0,0,0], heading = 0) {
 }
 
 function updateWorm(wormInstance, deltaTime, stimuli, foods) {
-    wormInstance.connectome.updateStimuli(stimuli);
+    wormInstance.hunger = Math.min(1, wormInstance.hunger + HUNGER_RATE * deltaTime);
+
+    wormInstance.connectome.updateStimuli({ light: stimuli.light, temp: stimuli.temp, hunger: wormInstance.hunger });
     wormInstance.connectome.step(deltaTime);
 
     const { amplitude } = wormInstance.connectome.getWaveParams();
@@ -198,7 +202,7 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     while (diff < -Math.PI) diff += 2 * Math.PI;
     wormInstance.heading += Math.sign(diff) * Math.min(Math.abs(diff), TURN_SPEED * deltaTime);
 
-    if (stimuli.hunger > 0.5 && foods.length > 0) {
+    if (wormInstance.hunger > 0.5 && foods.length > 0) {
         let nearestFood = null;
         let nearestDist = Infinity;
 
@@ -217,7 +221,7 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
         while (foodDiff >  Math.PI) foodDiff -= 2 * Math.PI;
         while (foodDiff < -Math.PI) foodDiff += 2 * Math.PI;
 
-        const bias = (stimuli.hunger - 0.5) * 2; // 0 a hunger=0.5, 1 a hunger=1.0
+        const bias = (wormInstance.hunger - 0.5) * 2; // 0 a hunger=0.5, 1 a hunger=1.0
         wormInstance.heading += foodDiff * bias * FOOD_TURN_STRENGTH * deltaTime;
     } 
 
