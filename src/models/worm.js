@@ -73,6 +73,12 @@ const wormFragmentShaderSource = `
     }
 `;
 
+const MAX_SPEED = 2.0; //units per second
+const FRICTION = 2.0; //how fast worm adapts to speed
+const TURN_SPEED = 0.5;
+const PIROUETTE_MIN = 3.0; // min second between rotation
+const PIROUETTE_MAX = 8.0; // max seconds between rotation
+
 function initWorm(gl, objData) {
     const program = createShaderProgram(gl, wormVertexShaderSource, wormFragmentShaderSource);
 
@@ -135,11 +141,42 @@ function createWormInstance(position = [0,0,0], heading = 0) {
     return {
         position: [...position], //copy to avoid aliasing
         heading,
+        targetHeading: heading,
         speed: 0,
+        pirouetteTimer: Math.random() * PIROUETTE_MAX,  // random initial offset
         connectome: Connectome.createInstance(),
         alive: true
     }
 }
+
+function updateWorm(wormInstance, deltaTime) {
+
+    const { amplitude, direction } = wormInstance.connectome.getWaveParams();
+    const targetSpeed = amplitude * MAX_SPEED * direction;
+
+    //gradually reach target Speed
+    wormInstance.speed += (targetSpeed - wormInstance.speed) * FRICTION * deltaTime;
+
+    //casual drift 
+    wormInstance.pirouetteTimer -= deltaTime;
+    if (wormInstance.pirouetteTimer <= 0) {
+        // scegli un nuovo angolo target, non ruotare subito
+        wormInstance.targetHeading = wormInstance.heading + (Math.random() - 0.5) * Math.PI;
+        wormInstance.pirouetteTimer = PIROUETTE_MIN + Math.random() * (PIROUETTE_MAX - PIROUETTE_MIN);
+    }
+
+    // ruota gradualmente verso il target
+    let diff = wormInstance.targetHeading - wormInstance.heading;
+    // normalizza la differenza in [-π, π] per evitare rotazioni nel verso sbagliato
+    while (diff >  Math.PI) diff -= 2 * Math.PI;
+    while (diff < -Math.PI) diff += 2 * Math.PI;
+    wormInstance.heading += Math.sign(diff) * Math.min(Math.abs(diff), TURN_SPEED * deltaTime);
+
+    //move with calculated speed on x and z axis
+    wormInstance.position[0] += Math.sin(wormInstance.heading) * wormInstance.speed * deltaTime;
+    wormInstance.position[2] += Math.cos(wormInstance.heading) * wormInstance.speed * deltaTime;
+  }
+
 
 /**
  * 

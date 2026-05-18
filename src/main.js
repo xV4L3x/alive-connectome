@@ -124,9 +124,9 @@ async function main() {
         for (const wormInstance of worms) {
             wormInstance.connectome.updateStimuli(params);
             wormInstance.connectome.step(deltaTime);
+            updateWorm(wormInstance, deltaTime);
             drawWorm(gl, wormGPU, wormInstance, { viewProjectionMatrix, eye, time });
         }
-
 
         //drawCabinet(gl, cabinet, { viewProjectionMatrix, eye, lightPosition: [2, 3, 4] });
 
