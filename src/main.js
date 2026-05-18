@@ -63,7 +63,13 @@ async function main() {
     gl.clearColor(0.1, 0.1, 0.1, 1.0);
 
     const camera = createCamera();
-    setupCameraControls(canvas, camera);
+    let cameraMode = 0;
+    const cameraState = { mode: 'Free Camera' };
+    const MODE_LABELS = ['Free Camera', 'Third Person', 'First Person'];
+    function updateCameraModeDisplay() {
+        cameraState.mode = MODE_LABELS[cameraMode];
+    }
+    setupCameraControls(canvas, camera, () => cameraMode === 0);
 
     const mouse = { x: 0, y: 0 };
     canvas.addEventListener('mousemove', e => {
@@ -116,10 +122,17 @@ async function main() {
     gui.add(actions, 'spawn').name("Spawn");
     gui.add(actions, 'spawnFood').name("Spawn Food");
 
+    gui.add(cameraState, 'mode').name('Camera').listen();
+
 
 
     let selectionGui = null;
     function rebuildSelectionGui() {
+        if (!selectedWorm) {
+            cameraMode = 0;
+            updateCameraModeDisplay();
+            return;
+        }
         if (selectionGui) { selectionGui.destroy(); selectionGui = null; }
         if (!selectedWorm) return;
 
@@ -174,6 +187,11 @@ async function main() {
         selectionGui.add({
             kill: () => { selectedWorm.alive = false; selectedWorm = null; rebuildSelectionGui(); }
         }, 'kill').name('Kill Worm');
+
+        selectionGui.add({
+            changeView: () => { cameraMode = (cameraMode + 1) % 3; updateCameraModeDisplay(); }
+        }, 'changeView').name('Change View');
+
     }
 
 
@@ -194,7 +212,20 @@ async function main() {
         resizeCanvas(canvas);
         gl.viewport(0, 0, canvas.width, canvas.height);
         
-        const eye = computeEye(camera);
+        let eye, lookTarget;
+        if (cameraMode === 1 && selectedWorm) {
+            const r = computeThirdPerson(selectedWorm);
+            eye = r.eye;
+            lookTarget = r.target;
+        } else if (cameraMode === 2 && selectedWorm) {
+            const r = computeFirstPerson(selectedWorm);
+            eye = r.eye;
+            lookTarget = r.target;
+        } else {
+            eye = computeEye(camera);
+            lookTarget = camera.target;
+        }
+
 
         //PROJECTION MATRIX BUILDING
         const fov = Math.PI / 4; // 45 degrees
@@ -205,7 +236,7 @@ async function main() {
 
         //VIEW MATRIX BUILDING
         const up = [0, 1, 0]; // upper direction
-        const viewMatrix = m4.inverse(m4.lookAt(eye, camera.target, up)); // inverse matrix because we need the matrix of "the world" seen by the camera, not the camera
+        const viewMatrix = m4.inverse(m4.lookAt(eye, lookTarget, up)); // inverse matrix because we need the matrix of "the world" seen by the camera, not the camera
 
         //VP Matrix, unique that will be applied on different model matrices
         const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
@@ -243,8 +274,6 @@ async function main() {
                 worms.splice(i, 1);
             }
         }
-
-
         
         for (const wormInstance of worms) {
             drawWorm(gl, wormGPU, wormInstance, { viewProjectionMatrix, eye, time }, wormInstance === hoveredWorm);

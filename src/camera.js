@@ -20,7 +20,47 @@ function computeEye(camera) {
     ];
 }
 
-function setupCameraControls(canvas, camera) {
+function computeThirdPerson(worm) {
+    //get pointing direction (unitary)
+    const forward = [Math.sin(worm.heading), 0, Math.cos(worm.heading)];
+
+    const eye = [
+        worm.position[0] - forward[0] * 5.0,
+        worm.position[1] + 3.0,
+        worm.position[2] - forward[2] * 5.0 //move in depth by 5 
+    ];
+
+    //aim to worm but slightly higher
+    const target = [
+          worm.position[0],
+          worm.position[1] + 1.0,
+          worm.position[2],
+    ];
+
+    return { eye, target };
+}
+
+function computeFirstPerson(worm) {
+    const forward = [Math.sin(worm.heading), 0, Math.cos(worm.heading)];
+
+    const eye = [
+        worm.position[0] + forward[0] * 1.5,
+        worm.position[1] + 1.0,
+        worm.position[2] + forward[2] * 1.5,
+    ];
+
+    const target = [
+        eye[0] + forward[0] * 5.0,
+        eye[1],
+        eye[2] + forward[2] * 5.0,
+    ];  
+
+    return { eye, target };
+
+
+}
+
+function setupCameraControls(canvas, camera, getEnabled) {
     const draggingSensitivity = 0.005;
 
     let isDragging = false;
@@ -35,6 +75,8 @@ function setupCameraControls(canvas, camera) {
 
     canvas.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
+        if (!getEnabled()) return;
+
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
 
@@ -47,6 +89,7 @@ function setupCameraControls(canvas, camera) {
     });
 
     canvas.addEventListener('wheel', (e) => {
+        if (!getEnabled()) return;
         e.preventDefault();
         camera.distance += e.deltaY * 0.01;
         camera.distance  = Math.max(0.5, Math.min(50, camera.distance)); //[0.5,50]

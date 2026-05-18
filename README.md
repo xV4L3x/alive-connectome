@@ -92,6 +92,38 @@ La view matrix è l'inversa della `lookAt(eye, target, up)`, ricalcolata ogni fr
 
 L'elevation è vincolata all'intervallo $\left(-\frac{\pi}{2} + \varepsilon,\ \frac{\pi}{2} - \varepsilon\right)$ per evitare singolarità ai poli, dove `lookAt` diventa instabile (il vettore `up` e la direzione di vista diventano paralleli).
 
+### Modalità Camera
+
+Quando un verme è selezionato, il pannello di selezione espone il bottone **Change View** che cicla tra tre modalità:
+
+| Valore | Modalità | Descrizione |
+|---|---|---|
+| `0` | Free Camera | Vista orbitale predefinita, controlli mouse abilitati |
+| `1` | Third Person | Camera dietro e sopra il verme selezionato, controlli disabilitati |
+| `2` | First Person | Camera agli occhi del verme, guarda nella direzione di marcia, controlli disabilitati |
+
+La modalità corrente è visualizzata nel pannello principale (voce **Camera**). Quando il verme viene deselezionato o ucciso, la modalità torna automaticamente a `0`.
+
+**Disabilitazione dei controlli:** `setupCameraControls` riceve una funzione `getEnabled` che viene interrogata a ogni evento mouse. I listener di `mousemove` e `wheel` eseguono un early return se `getEnabled()` ritorna `false`, così i controlli smettono di funzionare nelle modalità 1 e 2 senza rimuovere i listener.
+
+**Terza persona — `computeThirdPerson(worm)`:**
+
+Il vettore forward è $\mathbf{f} = (\sin h,\ 0,\ \cos h)$ dove $h$ è l'heading del verme (la stessa formula usata per il movimento). La camera si posiziona arretrando lungo $-\mathbf{f}$ e salendo sull'asse Y:
+
+$$\mathbf{eye} = \mathbf{p}_{verme} - \mathbf{f} \cdot d_{back} + (0,\ h_{up},\ 0)$$
+$$\mathbf{target} = \mathbf{p}_{verme} + (0,\ 1,\ 0)$$
+
+con $d_{back} = 5$ unità dietro e $h_{up} = 3$ unità sopra (calibrabili visivamente). Il target è il centro del verme leggermente sollevato per evitare di puntare al pavimento.
+
+**Prima persona — `computeFirstPerson(worm)`:**
+
+L'occhio è posizionato davanti al verme (sommando $+\mathbf{f}$ invece di sottrarlo) ad altezza testa. Il punto di mira è 5 unità più avanti nella stessa direzione, alla stessa altezza:
+
+$$\mathbf{eye} = \mathbf{p}_{verme} + \mathbf{f} \cdot d_{head} + (0,\ h_{eye},\ 0)$$
+$$\mathbf{target} = \mathbf{eye} + \mathbf{f} \cdot 5$$
+
+con $d_{head} = 1.5$ e $h_{eye} = 1.0$. La camera segue heading e posizione del verme ogni frame, ruotando con lui.
+
 ### Connectome — Motore Neurale
   
 Il comportamento locomotorio è guidato da una simulazione della rete sinaptica reale del *C. elegans*, caricata dal dataset OpenWorm (`herm_full_edgelist.csv`, 7378 sinapsi,
@@ -744,6 +776,11 @@ $$\mathbf{M} \cdot \mathbf{v} = \mathbf{T} \cdot \bigl(R_Y \cdot (R_X \cdot \mat
 3. $\mathbf{T}$ — trasla il cilindro all'angolo della teca.
 
 Il materiale è **emissivo**: il fragment shader restituisce un colore costante indipendente dall'illuminazione, così il faretto appare sempre luminoso come una sorgente di luce.
+
+## Limiti
+- Nessuna presenza di sostanze chimiche rilevabili dai vermi
+- Rilevazione di cibo tramite radar di direzione dei cerchi piuttosto che calcolo della giusta direzione basato sulla differenza di distanza nel tempo (scenario biologico)
+- Nessuna modalità di accoppiamento
 
 ## References
 - Worm 3D model: [VirtualWorm](http://www.openworm.org/animatedworm.html) — WormBase / Caltech, MIT License
