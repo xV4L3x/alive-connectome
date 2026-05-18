@@ -277,6 +277,49 @@ a.touchTimer     = TOUCH_DURATION;
 a.touchDirection = dirA > 0 ? -1 : 1;  // testa → indietro, coda → avanti
 ```
 
+**Chemotassi — bias verso il cibo:**
+
+Quando `stimuli.hunger > 0.5`, il verme percepisce i gradienti chimici del cibo e orienta il proprio movimento verso la fonte più vicina. Il bias si somma alla rotazione della pirouette ogni frame, senza sostituirla.
+
+Ogni frame, dopo l'aggiornamento dell'heading da pirouette, viene calcolato l'angolo verso il cibo più vicino:
+
+$$\text{angleToFood} = \text{atan2}(\Delta x,\ \Delta z)$$
+
+L'uso di $\text{atan2}(\Delta x, \Delta z)$ — con $x$ come primo argomento — è coerente con la convenzione del sistema di movimento: $\text{heading} = 0$ corrisponde a $+Z$, e la posizione si aggiorna con $\Delta x = \sin(\text{heading}) \cdot v \cdot \Delta t$.
+
+La differenza angolare viene normalizzata in $[-\pi, \pi]$ per garantire la rotazione nel verso più corto, e il contributo finale sull'heading è:
+
+$$\text{bias} = (\text{hunger} - 0.5) \cdot 2 \qquad \in [0, 1]$$
+$$\Delta\text{heading} = \text{foodDiff} \cdot \text{bias} \cdot k_f \cdot \Delta t$$
+
+dove $k_f$ = `FOOD_TURN_STRENGTH = 1.5`. Il coefficiente `(hunger − 0.5) × 2` vale 0 esattamente a hunger=0.5 e 1 a hunger=1.0 — sotto la soglia il bias è assente, sopra cresce linearmente.
+
+### Oggetti Cibo
+
+Il cibo è rappresentato come colonie batteriche piatte sul terreno — dischi procedurali rossi semitrasparenti. Ogni istanza ha:
+
+```javascript
+{ position: [x, y, z], nutrients: 0.3..1.0 }
+```
+
+**Geometria:** un ventaglio di `FOOD_SIDES = 20` triangoli dal centro. Per ogni spicchio $i$:
+
+$$\theta_1 = \frac{i}{N} 2\pi \qquad \theta_2 = \frac{i+1}{N} 2\pi$$
+
+I vertici del triangolo sono il centro $(0,0,0)$ e i due punti sul bordo $(r\cos\theta,\ 0,\ r\sin\theta)$. Tutti a Y=0 nello spazio modello — il disco è naturalmente orizzontale.
+
+**Scala dinamica:** il disco si restringe con `nutrients`. La model matrix applica uno scaling uniforme su X e Z:
+
+$$\mathbf{M} = \mathbf{T}(x, y, z) \cdot \mathbf{S}(\text{nutrients},\ 1,\ \text{nutrients})$$
+
+Quando `nutrients = 1.0` il disco ha raggio massimo `FOOD_RADIUS = 0.4`; quando si azzera il disco scompare.
+
+**Illuminazione Phong:** la normale è hardcoded nel fragment shader come $(0, 1, 0)$ — il disco è sempre orizzontale e non ha rotazioni, quindi non serve un buffer di normali. Il calcolo diffuse + specular usa le stesse 4 luci dei vermi.
+
+**Trasparenza:** il disco è disegnato con alpha blending (`u_alpha = 0.75`) e `depthMask(false)` durante il draw, riabilitato subito dopo. Questo evita che il disco occluda oggetti dietro di sé nel depth buffer. Il cibo viene renderizzato **dopo tutti gli oggetti opachi** (vermi, piano, teca) per rispettare l'ordinamento corretto della trasparenza.
+
+**Z-offset:** il disco è posizionato a Y=0.01 invece di Y=0 per evitare z-fighting con il terreno — senza questo offset il depth buffer non sa quale superficie disegnare sopra e produce flickering.
+
 ### Animazione Sinusoidale del Corpo
 
 Il vertex shader deforma ogni vertice lungo l'asse X (laterale).

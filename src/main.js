@@ -178,7 +178,7 @@ async function main() {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         for (const wormInstance of worms) {
-            updateWorm(wormInstance, deltaTime, params);
+            updateWorm(wormInstance, deltaTime, params, foods);
         }
         checkWormCollisions(worms);
 

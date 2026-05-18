@@ -80,6 +80,9 @@ const WORM_SCALE = 0.3;
 const WORM_RADIUS = 0.8; //hitbox
 const PIROUETTE_MIN = 3.0; // min second between rotation
 const PIROUETTE_MAX = 8.0; // max seconds between rotation
+const FOOD_TURN_STRENGTH = 1.5;
+const TOUCH_STRENGTH = 4.0;
+const TOUCH_DURATION = 1.5;
 
 function initWorm(gl, objData) {
     const program = createShaderProgram(gl, wormVertexShaderSource, wormFragmentShaderSource);
@@ -153,12 +156,7 @@ function createWormInstance(position = [0,0,0], heading = 0) {
     }
 }
 
-
-const TOUCH_STRENGTH = 4.0;
-const TOUCH_DURATION = 1.5;
-
-
-function updateWorm(wormInstance, deltaTime, stimuli) {
+function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     wormInstance.connectome.updateStimuli(stimuli);
     wormInstance.connectome.step(deltaTime);
 
@@ -193,6 +191,30 @@ function updateWorm(wormInstance, deltaTime, stimuli) {
     while (diff >  Math.PI) diff -= 2 * Math.PI;
     while (diff < -Math.PI) diff += 2 * Math.PI;
     wormInstance.heading += Math.sign(diff) * Math.min(Math.abs(diff), TURN_SPEED * deltaTime);
+
+    if (stimuli.hunger > 0.5 && foods.length > 0) {
+        let nearestFood = null;
+        let nearestDist = Infinity;
+
+        for (const f of foods) {
+            const dx = f.position[0] - wormInstance.position[0];
+            const dz = f.position[2] - wormInstance.position[2];
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist < nearestDist) { nearestDist = dist; nearestFood = f; }
+        }
+
+        const dx = nearestFood.position[0] - wormInstance.position[0];
+        const dz = nearestFood.position[2] - wormInstance.position[2];
+        const angleToFood = Math.atan2(dx, dz);
+
+        let foodDiff = angleToFood - wormInstance.heading;
+        while (foodDiff >  Math.PI) foodDiff -= 2 * Math.PI;
+        while (foodDiff < -Math.PI) foodDiff += 2 * Math.PI;
+
+        const bias = (stimuli.hunger - 0.5) * 2; // 0 a hunger=0.5, 1 a hunger=1.0
+        wormInstance.heading += foodDiff * bias * FOOD_TURN_STRENGTH * deltaTime;
+    } 
+
 
     wormInstance.position[0] += Math.sin(wormInstance.heading) * wormInstance.speed * deltaTime;
     wormInstance.position[2] += Math.cos(wormInstance.heading) * wormInstance.speed * deltaTime;
