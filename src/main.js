@@ -48,11 +48,7 @@ async function main() {
     
     const wormGPU = initWorm(gl, objData);
 
-    const worms = [
-        createWormInstance([0,  0,  0],  0),
-        createWormInstance([3,  0,  3],  1.0),
-        createWormInstance([-3, 0, -2],  2.5),
-    ];
+    const worms = [];
 
 
 
@@ -73,6 +69,8 @@ async function main() {
         hunger:  0.0,
     };
 
+
+    //GUI
     const gui = new dat.GUI();
     gui.add(params, 'light',  0, 1).step(0.01).name('Light');
     gui.add(params, 'temp',   0, 1).step(0.01).name('Temperature');
@@ -85,6 +83,18 @@ async function main() {
     lightsFolder.add({ l3: lightIntensities[2] }, 'l3', 0, 1).step(0.01).name('Back Left')  .onChange(v => Lights.setIntensity(2, v));
     lightsFolder.add({ l4: lightIntensities[3] }, 'l4', 0, 1).step(0.01).name('Back Right') .onChange(v => Lights.setIntensity(3, v));
     lightsFolder.open();
+
+    const actions = {
+        spawn: function() {
+            const margin = 1.0;
+            const x = (Math.random() * 2 - 1) * (TANK_WIDTH  - margin);
+            const z = (Math.random() * 2 - 1) * (TANK_DEPTH  - margin);
+            const heading = Math.random() * Math.PI * 2;
+            worms.push(createWormInstance([x, 0, z], heading));
+            console.log('Worms alive:', worms.length);
+        }
+    };
+    gui.add(actions, 'spawn').name("Spawn");
 
 
 
