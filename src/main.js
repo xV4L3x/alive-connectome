@@ -80,13 +80,11 @@ async function main() {
 
 
     const params = {
-        light:   0.0,
         temp:    0.0,
     };
 
     //GUI
     const gui = new dat.GUI();
-    gui.add(params, 'light',  0, 1).step(0.01).name('Light');
     gui.add(params, 'temp',   0, 1).step(0.01).name('Temperature');
 
     const lightsFolder = gui.addFolder('Lights');

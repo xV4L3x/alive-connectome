@@ -173,7 +173,8 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     wormInstance.hunger = Math.min(1, wormInstance.hunger + HUNGER_RATE * deltaTime);
     if (wormInstance.hunger >= 1.0) wormInstance.alive = false;
 
-    wormInstance.connectome.updateStimuli({ light: stimuli.light, temp: stimuli.temp, hunger: wormInstance.hunger });
+    const localLight = Lights.computeAt(wormInstance.position);
+    wormInstance.connectome.updateStimuli({ light: localLight, temp: stimuli.temp, hunger: wormInstance.hunger });
     wormInstance.connectome.step(deltaTime);
 
     const { amplitude } = wormInstance.connectome.getWaveParams();

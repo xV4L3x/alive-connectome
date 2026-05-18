@@ -171,13 +171,15 @@ Le uniform passate allo shader ogni frame:
 
 ### Pannello di Controllo e Stimoli Ambientali
 
-Un pannello `dat.GUI` espone tre slider in tempo reale. I valori vengono passati a `Connectome.updateStimuli()` ogni frame prima di `step()`.
+Un pannello `dat.GUI` espone gli slider in tempo reale. I valori vengono passati a `Connectome.updateStimuli()` ogni frame prima di `step()`.
 
-| Slider | Range | Neuroni target |
+| Stimolo | Sorgente | Neuroni target |
 |---|---|---|
-| Luce | [0, 1] | AVBL, AVBR, PVCL, PVCR (forward) / AVAL, AVAR, AVDL, AVDR (backward) |
-| Temperatura | [0, 1] | AFDL, AFDR |
-| Fame | [0, 1] | AWAL, AWAR, ADFL, ADFR |
+| Luce | calcolata per-verme da `Lights.computeAt()` | AVBL, AVBR, PVCL, PVCR (forward) / AVAL, AVAR, AVDL, AVDR (backward) |
+| Temperatura | slider globale [0, 1] | AFDL, AFDR |
+| Fame | stato interno per-verme `wormInstance.hunger` | AWAL, AWAR, ADFL, ADFR |
+
+La luce non è più uno slider globale: ogni verme riceve un valore di luce diverso in base alla propria posizione nella teca e alle intensità correnti dei 4 faretti (vedi sezione Sistema di Illuminazione Multi-Luce — `computeAt`).
 
 **Perché i neuroni di comando e non quelli sensoriali:**
 L'iniezione diretta sui neuroni sensoriali (AWC, ASE) non produce effetti visibili: il segnale si attenua su più hop prima di raggiungere i motoneuroni, mentre il circuito motorio si auto-sostiene tramite loop di feedback. I neuroni di comando (AVB per il forward, AVA per il backward) pilotano direttamente i motoneuroni e producono una risposta immediata.
@@ -347,14 +349,15 @@ con $k_h$ = `HUNGER_RATE = 0.02` s⁻¹. In assenza di cibo il verme raggiunge h
 La fame interna di ogni verme viene fusa con gli stimoli ambientali globali (luce, temperatura) prima di essere passata al connectome:
 
 ```javascript
+const localLight = Lights.computeAt(wormInstance.position);
 wormInstance.connectome.updateStimuli({
-    light:  stimuli.light,
+    light:  localLight,
     temp:   stimuli.temp,
     hunger: wormInstance.hunger
 });
 ```
 
-Gli stimoli `light` e `temp` sono globali — controllati dagli slider del pannello e uguali per tutti i vermi nella scena. La `hunger` è invece locale: ogni verme ha il proprio stato di fame indipendente, passato come segnale ai neuroni sensoriali del cibo. Questo fa sì che un verme affamato attivi i neuroni AWAL/AWAR/ADFL/ADFR con maggiore intensità, aumentando il bias verso il cibo nella sterzata (vedi sezione Chemotassi).
+I tre stimoli hanno sorgenti distinte: `light` è calcolata per-verme dalla posizione nella teca, `temp` è globale (slider del pannello, uguale per tutti), `hunger` è locale (stato interno indipendente per ogni verme). Questo significa che due vermi vicini ma sotto faretti diversi ricevono stimoli di luce diversi, producendo comportamenti diversificati nonostante lo stesso ambiente.
 
 **Soglia chemotassi e mangiare:**
 
@@ -594,6 +597,29 @@ for (int i = 0; i < 4; i++) {
 ```
 
 L'ambient è sommato una sola volta fuori dal loop perché rappresenta la luce ambientale indipendente dalle sorgenti puntuali. Ogni luce contribuisce con diffuse e specular scalati per la propria intensità, controllabile in tempo reale tramite slider `dat.GUI`.
+
+**Attenuazione per-verme (`computeAt`):**
+
+Oltre al rendering visivo, le intensità dei faretti influenzano direttamente il comportamento neurale di ogni verme. Il metodo `Lights.computeAt(position)` calcola lo scalare di luce [0, 1] percepito da un verme in quella posizione, sommando il contributo di ogni faretto con la legge di attenuazione inversa al quadrato:
+
+$$\text{light}_{verme} = \min\!\left(1,\ \sum_{i=0}^{3} \frac{I_i}{1 + k \cdot d_i^2}\right)$$
+
+dove $d_i = \|\mathbf{p}_{verme} - \mathbf{L}_i\|$ è la distanza 3D tra il verme e il faretto $i$, $I_i$ la sua intensità corrente, e $k = 0.005$ la costante di attenuazione.
+
+```javascript
+function computeAt(position) {
+    const [px, py, pz] = position;
+    let total = 0;
+    for (let i = 0; i < 4; i++) {
+        const [lx, ly, lz] = positions[i];
+        const dx = px - lx, dy = py - ly, dz = pz - lz;
+        total += intensities[i] / (1 + 0.005 * (dx*dx + dy*dy + dz*dz));
+    }
+    return Math.min(1, total);
+}
+```
+
+Non serve la radice quadrata perché la formula agisce direttamente su $d^2$. Il risultato viene passato come stimolo `light` al connectome di quel verme ogni frame — abbassare un faretto dalla GUI riduce istantaneamente la luce percepita dai vermi nella sua zona, alterandone il comportamento motorio.
 
 ### Faretti della Teca — Orientamento Direzionale
 
