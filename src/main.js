@@ -47,15 +47,17 @@ async function main() {
     Connectome.init(csvFileContent);
     
     const wormGPU = initWorm(gl, objData);
-
     const worms = [];
 
+    const food = initFood(gl);
+    const foods = [];
 
 
     const plane = await initPlane(gl);
     const tank = initTank(gl);
     //const cabinet = initCabinet(gl);
     const spotlight = initSpotlight(gl);
+
 
     gl.enable(gl.DEPTH_TEST); //control depth faces
     gl.clearColor(0.1, 0.1, 0.1, 1.0);
@@ -92,9 +94,18 @@ async function main() {
             const heading = Math.random() * Math.PI * 2;
             worms.push(createWormInstance([x, 0, z], heading));
             console.log('Worms alive:', worms.length);
+        },
+        spawnFood: function() {
+            const margin = 0.5;
+            const x = (Math.random() * 2 - 1) * (TANK_WIDTH  - margin);
+            const z = (Math.random() * 2 - 1) * (TANK_DEPTH  - margin);
+            const nutrients = 0.3 + Math.random() * 0.7;
+            foods.push(createFoodInstance([x, 0.01, z], nutrients));
         }
+
     };
     gui.add(actions, 'spawn').name("Spawn");
+    gui.add(actions, 'spawnFood').name("Spawn Food");
 
     const debugState = {
         // circuito avanti
@@ -170,6 +181,8 @@ async function main() {
             updateWorm(wormInstance, deltaTime, params);
         }
         checkWormCollisions(worms);
+
+        
         for (const wormInstance of worms) {
             drawWorm(gl, wormGPU, wormInstance, { viewProjectionMatrix, eye, time });
         }
@@ -199,7 +212,10 @@ async function main() {
 
         drawTank(gl, tank, {
             viewProjectionMatrix
-        })
+        });
+        for (const f of foods) {
+            drawFood(gl, food, f, { viewProjectionMatrix, eye });
+        }
 
 
         requestAnimationFrame(render);
