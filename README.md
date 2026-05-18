@@ -114,15 +114,26 @@ negati durante la costruzione dell'`adjacencyMap`.
 
 #### Loop di simulazione (`step`)
 
-Ogni frame esegue 5 fasi in sequenza:
+Ogni frame esegue 4 fasi in sequenza:
 
 1. **Reset spike** — `spiked = false` su tutti i neuroni
-2. **Stimoli sensoriali** — `activation` dei neuroni sensori sovrascritta direttamente dal valore degli slider ambiente
-3. **Propagazione** — per ogni neurone con `activation > θ` (soglia), accumula sui target: $a_{target} \mathrel{+}= a_{source} \cdot w \cdot s$
-4. **Decadimento** — $a \leftarrow a \cdot D$ (neuroni non stimolati si spengono gradualmente)
-5. **Clamp** — $a \leftarrow \text{clamp}(a,\ 0,\ 1)$
+2. **Iniezione stimoli** — gli interneuroni di comando vengono sovrascritti direttamente con i valori degli stimoli (vedi sezione Stimoli). Questi neuroni vengono esclusi dal leaky integrator al passo 3.
+3. **Propagazione + leaky integrator** — calcolo dell'input sinaptico accumulato per ogni neurone:
 
-Parametri: soglia $\theta = 0.3$, decadimento $D = 0.9$, scala pesi $s = 0.002$.
+$$\text{input}[j] \mathrel{+}= a_i \cdot w_{ij} \cdot s \quad \forall\, i : a_i > \theta$$
+
+Poi aggiornamento con equazione differenziale discreta (**leaky integrator**):
+
+$$\Delta a_j = \frac{\Delta t}{\tau} \cdot \bigl(-a_j + \text{input}[j]\bigr)$$
+
+Il termine $-a_j$ è la forza di ripristino: porta ogni neurone verso il proprio input di equilibrio $a_{\text{eq}} = \text{input}[j]$, prevenendo la saturazione a cascata tipica del modello a decay moltiplicativo.
+
+4. **Clamp** — $a \leftarrow \text{clamp}(a,\ 0,\ 1)$
+
+Parametri: soglia $\theta = 0.1$, costante di tempo $\tau = 0.1\,\text{s}$, scala pesi $s = 0.02$.
+
+**Perché il leaky integrator invece del decay moltiplicativo:**
+Il modello originale usava $a \leftarrow a \cdot D$ (decay). Il connectome del *C. elegans* ha centinaia di connessioni eccitatorie ricorrenti: con quel modello il segnale si auto-amplificava saturando tutti i neuroni indipendentemente dagli stimoli. Il leaky integrator stabilizza la rete — neuroni non stimolati decadono a zero, la saturazione avviene solo dove il segnale sinaptico è genuinamente alto.
 
 #### Output locomotorio (`getWaveParams`)
 
@@ -171,10 +182,76 @@ Un pannello `dat.GUI` espone tre slider in tempo reale. I valori vengono passati
 **Perché i neuroni di comando e non quelli sensoriali:**
 L'iniezione diretta sui neuroni sensoriali (AWC, ASE) non produce effetti visibili: il segnale si attenua su più hop prima di raggiungere i motoneuroni, mentre il circuito motorio si auto-sostiene tramite loop di feedback. I neuroni di comando (AVB per il forward, AVA per il backward) pilotano direttamente i motoneuroni e producono una risposta immediata.
 
+**Calcolo ponderato della direzione:**
+La direzione del movimento non è determinata da un singolo stimolo, ma dalla combinazione dell'attività neurale degli interneuroni di comando con un eventuale bias da collisione:
+
+$$\text{forwardDrive} = \frac{1}{4}(\text{AVBL} + \text{AVBR} + \text{PVCL} + \text{PVCR}) + \text{touchForward}$$
+$$\text{backwardDrive} = \frac{1}{4}(\text{AVAL} + \text{AVAR} + \text{AVDL} + \text{AVDR}) + \text{touchBackward}$$
+$$\text{direction} = \begin{cases} +1 & \text{se forwardDrive} \geq \text{backwardDrive} \\ -1 & \text{altrimenti} \end{cases}$$
+
+Il bias da collisione (`touchForward` / `touchBackward`) è un impulso esterno al connectome, attivato dal rilevamento di una collisione e descritto nella sezione Movimento del Verme.
+
 Il comportamento osservabile:
 
-$$\text{luce} \geq 0.5 \Rightarrow \omega > 0 \Rightarrow \text{verme avanza}$$
-$$\text{luce} < 0.5 \Rightarrow \omega < 0 \Rightarrow \text{verme arretra}$$
+$$\text{luce} \geq 0.5 \Rightarrow \text{AVB}\ \text{attivi} \Rightarrow \text{forwardDrive alto} \Rightarrow \text{verme avanza}$$
+$$\text{luce} < 0.5 \Rightarrow \text{AVA}\ \text{attivi} \Rightarrow \text{backwardDrive alto} \Rightarrow \text{verme arretra}$$
+
+### Movimento del Verme
+
+`updateWorm(wormInstance, deltaTime, stimuli)` è chiamata ogni frame per ogni verme. La funzione aggiorna la simulazione neurale, calcola velocità e direzione, fa avanzare la posizione e gestisce le collisioni con le pareti.
+
+**Fisica della velocità:**
+
+La velocità è uno scalare aggiornato con attrito (stile "Car Project"):
+
+$$v_{target} = A \cdot v_{max} \cdot \text{direction}$$
+$$v \mathrel{+}= (v_{target} - v) \cdot f \cdot \Delta t$$
+
+dove $A$ = `amplitude` dal connectome ∈ [0,1], $v_{max}$ = `MAX_SPEED = 2.0` unità/s, $f$ = `FRICTION = 2.0`. Valori alti di $f$ producono risposta immediata; valori bassi inerzia. Il segno di `direction` inverte la velocità: un valore negativo significa movimento all'indietro.
+
+**Strategia run + pirouette:**
+
+Il *C. elegans* esplora con lunghi tratti dritti interrotti da rotazioni casuali (*pirouette*). Un timer per ogni istanza conta il tempo: ogni 3–8 secondi viene estratto un nuovo `targetHeading` con uno scarto casuale di ±π/2 rispetto all'heading corrente. L'heading ruota gradualmente verso il target a velocità massima `TURN_SPEED = 0.5` rad/s:
+
+```javascript
+pirouetteTimer -= deltaTime;
+if (pirouetteTimer <= 0) {
+    targetHeading = heading + (Math.random() - 0.5) * Math.PI;
+    pirouetteTimer = PIROUETTE_MIN + Math.random() * (PIROUETTE_MAX - PIROUETTE_MIN);
+}
+let diff = targetHeading - heading;
+// normalizza in [-π, π] per evitare rotazioni nel verso sbagliato
+while (diff >  Math.PI) diff -= 2 * Math.PI;
+while (diff < -Math.PI) diff += 2 * Math.PI;
+heading += Math.sign(diff) * Math.min(Math.abs(diff), TURN_SPEED * deltaTime);
+```
+
+**Aggiornamento posizione:**
+
+Il verme si muove nel piano XZ. L'asse del corpo del modello OBJ è Z; dopo la rotazione Y di `heading`, la direzione forward nel mondo è:
+
+$$\Delta x = \sin(\text{heading}) \cdot v \cdot \Delta t$$
+$$\Delta z = \cos(\text{heading}) \cdot v \cdot \Delta t$$
+
+**Collisioni con le pareti:**
+
+Le pareti della teca formano un AABB con semilati `TANK_WIDTH` e `TANK_DEPTH`. Ogni frame, la posizione viene bloccata entro i limiti con hitbox sferica di raggio `WORM_RADIUS = 0.8`:
+
+$$x \leftarrow \text{clamp}(x,\ -W + r,\ W - r) \qquad z \leftarrow \text{clamp}(z,\ -D + r,\ D - r)$$
+
+**Risposta alla collisione — touch bias:**
+
+Quando il verme tocca una parete, vengono modificati `touchTimer` e `touchDirection` nell'istanza del verme — non direttamente i neuroni del connectome (che nel *C. elegans* reale si saturano a cascata per le connessioni ricorrenti). Il bias agisce esternamente nel calcolo della direzione:
+
+```javascript
+if (touchTimer > 0) {
+    const intensity = (touchTimer / TOUCH_DURATION) * TOUCH_STRENGTH;
+    if (touchDirection > 0) touchForward  = intensity;
+    else                    touchBackward = intensity;
+}
+```
+
+Con `TOUCH_STRENGTH = 4.0` e `TOUCH_DURATION = 1.5` s, il bias sovrasta temporaneamente il drive del connectome per circa un secondo e mezzo, forzando l'inversione di marcia prima che il timer scada.
 
 ### Animazione Sinusoidale del Corpo
 

@@ -96,6 +96,41 @@ async function main() {
     };
     gui.add(actions, 'spawn').name("Spawn");
 
+    const debugState = {
+        // circuito avanti
+        AVBL: 0, AVBR: 0, PVCL: 0, PVCR: 0,
+        // circuito indietro
+        AVAL: 0, AVAR: 0, AVDL: 0, AVDR: 0,
+        // neuroni tocco testa
+        ALML: 0, ALMR: 0, AVM: 0,
+        // neuroni tocco coda
+        PLML: 0, PLMR: 0, PVM: 0,
+
+        ASEL: 0, ASER: 0,
+
+        //motors
+        DA01: 0, VB01: 0,
+        // output
+        amplitude: 0, freqTime: 0, direction: 0,
+    };
+    const debugFolder = gui.addFolder('Debug [Worm 0]');
+    for (const key of Object.keys(debugState)) {
+        debugFolder.add(debugState, key, 0, 1).step(0.01).listen();
+    }
+    const debugActions = {
+      copy: function() {
+          const lines = Object.entries(debugState)
+              .map(([k, v]) => `${k}: ${v.toFixed(4)}`)
+              .join('\n');
+          navigator.clipboard.writeText(lines);
+          console.log('Debug state copied:\n' + lines);
+      }
+    };
+    debugFolder.add(debugActions, 'copy').name('Copy State');
+
+
+
+
 
 
     let time = 0;
@@ -132,11 +167,22 @@ async function main() {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         for (const wormInstance of worms) {
-            wormInstance.connectome.updateStimuli(params);
-            wormInstance.connectome.step(deltaTime);
-            updateWorm(wormInstance, deltaTime);
+            updateWorm(wormInstance, deltaTime, params);
             drawWorm(gl, wormGPU, wormInstance, { viewProjectionMatrix, eye, time });
         }
+
+        if (worms.length > 0) {
+            const c = worms[0].connectome;
+            for (const key of ['AVBL','AVBR','PVCL','PVCR','AVAL','AVAR','AVDL','AVDR',
+                                'ALML','ALMR','AVM','PLML','PLMR','PVM', 'ASEL', 'ASER', 'DA01','VB01']) {
+                debugState[key] = c.getNeuronActivity(key);
+            }
+            const wp = worms[0].connectome.getWaveParams();
+            debugState.amplitude  = wp.amplitude;
+            debugState.freqTime   = wp.freqTime;
+            debugState.direction  = wp.direction;
+        }
+
 
         //drawCabinet(gl, cabinet, { viewProjectionMatrix, eye, lightPosition: [2, 3, 4] });
 

@@ -76,6 +76,8 @@ const wormFragmentShaderSource = `
 const MAX_SPEED = 2.0; //units per second
 const FRICTION = 2.0; //how fast worm adapts to speed
 const TURN_SPEED = 0.5;
+const WORM_SCALE = 0.3;
+const WORM_RADIUS = 0.8; //hitbox
 const PIROUETTE_MIN = 3.0; // min second between rotation
 const PIROUETTE_MAX = 8.0; // max seconds between rotation
 
@@ -142,6 +144,8 @@ function createWormInstance(position = [0,0,0], heading = 0) {
         position: [...position], //copy to avoid aliasing
         heading,
         targetHeading: heading,
+        touchTimer:     0, // seconds of touch effect
+        touchDirection: 0,   // +1 push forward (tail touch). -1 push backwards (head touch)
         speed: 0,
         pirouetteTimer: Math.random() * PIROUETTE_MAX,  // random initial offset
         connectome: Connectome.createInstance(),
@@ -149,33 +153,81 @@ function createWormInstance(position = [0,0,0], heading = 0) {
     }
 }
 
-function updateWorm(wormInstance, deltaTime) {
 
-    const { amplitude, direction } = wormInstance.connectome.getWaveParams();
-    const targetSpeed = amplitude * MAX_SPEED * direction;
+const TOUCH_STRENGTH = 4.0;
+const TOUCH_DURATION = 1.5;
 
-    //gradually reach target Speed
-    wormInstance.speed += (targetSpeed - wormInstance.speed) * FRICTION * deltaTime;
+function updateWorm(wormInstance, deltaTime, stimuli) {
+    wormInstance.connectome.updateStimuli(stimuli);
+    wormInstance.connectome.step(deltaTime);
 
-    //casual drift 
-    wormInstance.pirouetteTimer -= deltaTime;
-    if (wormInstance.pirouetteTimer <= 0) {
-        // scegli un nuovo angolo target, non ruotare subito
-        wormInstance.targetHeading = wormInstance.heading + (Math.random() - 0.5) * Math.PI;
-        wormInstance.pirouetteTimer = PIROUETTE_MIN + Math.random() * (PIROUETTE_MAX - PIROUETTE_MIN);
+    const { amplitude } = wormInstance.connectome.getWaveParams();
+
+    const c = wormInstance.connectome;
+    const forwardDrive  = (c.getNeuronActivity('AVBL') + c.getNeuronActivity('AVBR') +
+                           c.getNeuronActivity('PVCL') + c.getNeuronActivity('PVCR')) / 4;
+    const backwardDrive = (c.getNeuronActivity('AVAL') + c.getNeuronActivity('AVAR') +
+                           c.getNeuronActivity('AVDL') + c.getNeuronActivity('AVDR')) / 4;
+
+    let touchForward = 0, touchBackward = 0;
+    if (wormInstance.touchTimer > 0) {
+        wormInstance.touchTimer -= deltaTime;
+        const intensity = (wormInstance.touchTimer / TOUCH_DURATION) * TOUCH_STRENGTH;
+        if (wormInstance.touchDirection > 0) touchForward  = intensity;
+        else                                  touchBackward = intensity;
     }
 
-    // ruota gradualmente verso il target
+    const direction = (forwardDrive + touchForward) >= (backwardDrive + touchBackward) ? 1 : -1;
+
+    const targetSpeed = amplitude * MAX_SPEED * direction;
+    wormInstance.speed += (targetSpeed - wormInstance.speed) * FRICTION * deltaTime;
+
+    // pirouette e heading (invariati)
+    wormInstance.pirouetteTimer -= deltaTime;
+    if (wormInstance.pirouetteTimer <= 0) {
+        wormInstance.targetHeading  = wormInstance.heading + (Math.random() - 0.5) * Math.PI;
+        wormInstance.pirouetteTimer = PIROUETTE_MIN + Math.random() * (PIROUETTE_MAX - PIROUETTE_MIN);
+    }
     let diff = wormInstance.targetHeading - wormInstance.heading;
-    // normalizza la differenza in [-π, π] per evitare rotazioni nel verso sbagliato
     while (diff >  Math.PI) diff -= 2 * Math.PI;
     while (diff < -Math.PI) diff += 2 * Math.PI;
     wormInstance.heading += Math.sign(diff) * Math.min(Math.abs(diff), TURN_SPEED * deltaTime);
 
-    //move with calculated speed on x and z axis
     wormInstance.position[0] += Math.sin(wormInstance.heading) * wormInstance.speed * deltaTime;
     wormInstance.position[2] += Math.cos(wormInstance.heading) * wormInstance.speed * deltaTime;
-  }
+
+    checkWallCollision(wormInstance, direction);
+}
+
+
+const TOUCH_TIMER = 5;
+function checkWallCollision(wormInstance, direction) {
+    const pos = wormInstance.position;
+    let hit = false;
+
+    //X checks
+    if (pos[0] < -TANK_WIDTH + WORM_RADIUS) {
+        pos[0] = -TANK_WIDTH + WORM_RADIUS;
+        hit = true;
+    } else if (pos[0] > TANK_WIDTH - WORM_RADIUS) {
+        pos[0] = TANK_WIDTH - WORM_RADIUS;
+        hit = true;
+    }
+
+    //Z checks
+    if (pos[2] < -TANK_DEPTH + WORM_RADIUS) {
+        pos[2] = -TANK_DEPTH + WORM_RADIUS;
+        hit = true;
+    } else if (pos[2] > TANK_DEPTH - WORM_RADIUS) {
+        pos[2] = TANK_DEPTH - WORM_RADIUS;
+        hit = true;
+    }
+
+    if (hit) {
+        wormInstance.touchTimer     = TOUCH_TIMER;
+        wormInstance.touchDirection = direction > 0 ? -1 : 1;
+    }
+}
 
 
 /**
@@ -205,32 +257,31 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }) {
     gl.vertexAttribPointer(worm.locations.normal, 3, gl.FLOAT, false, 0, 0);
 
     //MODEL MATRIX BUILDING
-    const scalingFactor = 0.5;
     const [px, py, pz] = wormInstance.position;
     const { amplitude, freqTime } = wormInstance.connectome.getWaveParams();
 
     const wormModelMatrix = m4.multiply(
-        m4.translation(px, -worm.yMin * scalingFactor + py, pz), // translate vertically to not overflow the plane
+        m4.translation(px, -worm.yMin * WORM_SCALE + py, pz), // translate vertically to not overflow the plane
         m4.multiply(
             m4.yRotation(wormInstance.heading),
-            m4.scaling(scalingFactor, scalingFactor, scalingFactor) // scale model on the 3 axis
+            m4.scaling(WORM_SCALE, WORM_SCALE, WORM_SCALE) // scale model on the 3 axis
         )
     ); 
     //MVP MATRIX BUILDING
     const wormMvpMatrix = m4.multiply(viewProjectionMatrix, wormModelMatrix);
   
     //Write values
-    gl.uniformMatrix4fv(worm.locations.matrix,      false, wormMvpMatrix);
+    gl.uniformMatrix4fv(worm.locations.matrix, false, wormMvpMatrix);
     gl.uniformMatrix4fv(worm.locations.modelMatrix, false, wormModelMatrix);
     gl.uniform3fv(worm.locations.lightPositions, Lights.getPositionsFlat());
     gl.uniform1fv(worm.locations.lightIntensities, Lights.getIntensities());
     gl.uniform3fv(worm.locations.viewPosition,  eye);
-    gl.uniform1f(worm.locations.amplitude, amplitude * 0.5);
-    gl.uniform1f(worm.locations.freqTime,   freqTime);
-    gl.uniform1f(worm.locations.freqSpace,  6.28);
-    gl.uniform1f(worm.locations.time,       time);
-    gl.uniform1f(worm.locations.bodyMin,    worm.bodyMin);
-    gl.uniform1f(worm.locations.bodyMax,    worm.bodyMax);
+    gl.uniform1f(worm.locations.amplitude, amplitude * 0.8);
+    gl.uniform1f(worm.locations.freqTime, freqTime);
+    gl.uniform1f(worm.locations.freqSpace, 6.28);
+    gl.uniform1f(worm.locations.time, time);
+    gl.uniform1f(worm.locations.bodyMin, worm.bodyMin);
+    gl.uniform1f(worm.locations.bodyMax, worm.bodyMax);
 
     gl.drawArrays(gl.TRIANGLES, 0, worm.vertexCount);
 }

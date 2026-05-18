@@ -18,9 +18,9 @@ function parseConnectomeCsv(text) {
 }
 
 const Connectome = ( () => {
-    const TRESHOLD = 0.3; //reached this value a neuron "spikes" (activate)
+    const THRESHOLD = 0.1; //reached this value a neuron "spikes" (activate)
     const DECAY = 0.9; //gradually decay neuron activation over transfer
-    const WEIGHT_SCALE = 0.002; //normalize weights to meet spike requirements
+    const WEIGHT_SCALE = 0.02; //normalize weights to meet spike requirements
 
     const INHIBITORY_NEURONS = new Set([
         'DD01','DD02','DD03','DD04','DD05','DD06',
@@ -61,14 +61,12 @@ const Connectome = ( () => {
         let stimuli = { light: 0, temp: 0, hunger: 0 };
 
         function step(deltaTime) {
-            for(const name in neurons) {
-                neurons[name].spiked = false; //reset all spikes
-            }
+            for (const name in neurons) neurons[name].spiked = false;
 
-            const forwardNeurons  = ['AVBL', 'AVBR', 'PVCL', 'PVCR'];
-            const backwardNeurons = ['AVAL', 'AVAR', 'AVDL', 'AVDR'];
-            const tempNeurons     = ['AFDL', 'AFDR'];
-            const foodNeurons     = ['AWAL', 'AWAR', 'ADFL', 'ADFR'];
+            const forwardNeurons = ['AVBL','AVBR','PVCL','PVCR'];
+            const backwardNeurons = ['AVAL','AVAR','AVDL','AVDR'];
+            const tempNeurons = ['AFDL','AFDR'];
+            const foodNeurons = ['AWAL','AWAR','ADFL','ADFR'];
 
             if (stimuli.light >= 0.5) {
                 for (const n of forwardNeurons)  if (neurons[n]) neurons[n].activation = stimuli.light;
@@ -77,37 +75,35 @@ const Connectome = ( () => {
                 for (const n of backwardNeurons) if (neurons[n]) neurons[n].activation = 1 - stimuli.light;
                 for (const n of forwardNeurons)  if (neurons[n]) neurons[n].activation = 0;
             }
-
             for (const n of tempNeurons) if (neurons[n]) neurons[n].activation = stimuli.temp;
             for (const n of foodNeurons) if (neurons[n]) neurons[n].activation = stimuli.hunger;
 
+            const input = {};
+            for (const name in neurons) input[name] = 0;
 
-            //PROPAGATION
             for (const name in neurons) {
                 const neuron = neurons[name];
-                if (neuron.activation <= TRESHOLD) continue;
-                neuron.spiked = true; //spike neuron if treshold reached
-
+                if (neuron.activation <= THRESHOLD) continue;
+                neuron.spiked = true;
                 const conns = sharedAdjacencyMap[name];
                 if (!conns) continue;
                 for (const conn of conns) {
-                    if (neurons[conn.target]) {
-                        neurons[conn.target].activation += neuron.activation * conn.weight * WEIGHT_SCALE; //propagate to connected neurons
-                    }
+                    if (neurons[conn.target] !== undefined)
+                        input[conn.target] += neuron.activation * conn.weight * WEIGHT_SCALE;
                 }
             }
 
-            //DECAY
+            const TAU = 0.1;
+            const stimulusNeurons = new Set([...forwardNeurons, ...backwardNeurons, ...tempNeurons, ...foodNeurons]);
             for (const name in neurons) {
-                neurons[name].activation *= DECAY;
+                if (stimulusNeurons.has(name)) continue;
+                neurons[name].activation += (deltaTime / TAU) * (-neurons[name].activation + input[name]);
             }
 
-            //[0,1]
             for (const name in neurons) {
                 const a = neurons[name].activation;
                 neurons[name].activation = a < 0 ? 0 : a > 1 ? 1 : a;
             }
-
         }
 
         function updateStimuli(state) {
@@ -148,6 +144,7 @@ const Connectome = ( () => {
                 if (neurons[name]) neurons[name].activation = 1.0;
             }
         }
+
 
         function getNeuronActivity(name) {
             return neurons[name] ? neurons[name].activation : 0;
