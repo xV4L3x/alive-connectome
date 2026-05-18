@@ -46,7 +46,16 @@ async function main() {
 
     Connectome.init(csvFileContent);
     
-    const worm = initWorm(gl, objData);
+    const wormGPU = initWorm(gl, objData);
+
+    const worms = [
+        createWormInstance([0,  0,  0],  0),
+        createWormInstance([3,  0,  3],  1.0),
+        createWormInstance([-3, 0, -2],  2.5),
+    ];
+
+
+
     const plane = await initPlane(gl);
     const tank = initTank(gl);
     //const cabinet = initCabinet(gl);
@@ -91,10 +100,6 @@ async function main() {
         lastTimestamp = timestamp;
         time += deltaTime;
 
-        Connectome.updateStimuli(params);
-        Connectome.step(deltaTime);
-        const {amplitude, freqTime} = Connectome.getWaveParams();
-
         resizeCanvas(canvas);
         gl.viewport(0, 0, canvas.width, canvas.height);
         
@@ -116,13 +121,12 @@ async function main() {
 
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        drawWorm(gl, worm, {
-            viewProjectionMatrix,
-            eye,
-            time,
-            amplitude,
-            freqTime,
-        });
+        for (const wormInstance of worms) {
+            wormInstance.connectome.updateStimuli(params);
+            wormInstance.connectome.step(deltaTime);
+            drawWorm(gl, wormGPU, wormInstance, { viewProjectionMatrix, eye, time });
+        }
+
 
         //drawCabinet(gl, cabinet, { viewProjectionMatrix, eye, lightPosition: [2, 3, 4] });
 

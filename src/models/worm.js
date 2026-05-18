@@ -131,13 +131,23 @@ function initWorm(gl, objData) {
     }
 }
 
+function createWormInstance(position = [0,0,0], heading = 0) {
+    return {
+        position: [...position], //copy to avoid aliasing
+        heading,
+        speed: 0,
+        connectome: Connectome.createInstance(),
+        alive: true
+    }
+}
+
 /**
  * 
  * @param {WebGLRenderingContext} gl 
  * @param {*} worm 
  * @param {*} param2 
  */
-function drawWorm(gl, worm, { viewProjectionMatrix, eye, time, amplitude, freqTime }) {
+function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }) {
     gl.useProgram(worm.program);
 
     //STRUCTURE:
@@ -159,9 +169,15 @@ function drawWorm(gl, worm, { viewProjectionMatrix, eye, time, amplitude, freqTi
 
     //MODEL MATRIX BUILDING
     const scalingFactor = 0.5;
+    const [px, py, pz] = wormInstance.position;
+    const { amplitude, freqTime } = wormInstance.connectome.getWaveParams();
+
     const wormModelMatrix = m4.multiply(
-        m4.translation(0, -worm.yMin * scalingFactor, 0), // translate vertically to not overflow the plane
-        m4.scaling(scalingFactor, scalingFactor, scalingFactor) // scale model on the 3 axis
+        m4.translation(px, -worm.yMin * scalingFactor + py, pz), // translate vertically to not overflow the plane
+        m4.multiply(
+            m4.yRotation(wormInstance.heading),
+            m4.scaling(scalingFactor, scalingFactor, scalingFactor) // scale model on the 3 axis
+        )
     ); 
     //MVP MATRIX BUILDING
     const wormMvpMatrix = m4.multiply(viewProjectionMatrix, wormModelMatrix);
