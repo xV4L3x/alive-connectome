@@ -68,15 +68,17 @@ const Connectome = ( () => {
             const tempNeurons = ['AFDL','AFDR'];
             const foodNeurons = ['AWAL','AWAR','ADFL','ADFR'];
 
-            if (stimuli.light >= 0.5) {
-                for (const n of forwardNeurons)  if (neurons[n]) neurons[n].activation = stimuli.light;
-                for (const n of backwardNeurons) if (neurons[n]) neurons[n].activation = 0;
-            } else {
-                for (const n of backwardNeurons) if (neurons[n]) neurons[n].activation = 1 - stimuli.light;
-                for (const n of forwardNeurons)  if (neurons[n]) neurons[n].activation = 0;
+            for (const n of forwardNeurons)  if (neurons[n]) neurons[n].activation = 0.5;
+            for (const n of backwardNeurons) if (neurons[n]) neurons[n].activation = 0.0;
+
+            if (stimuli.light > 0.01) {
+                for (const n of backwardNeurons)
+                    if (neurons[n]) neurons[n].activation += stimuli.light * 1.5;
             }
+
             for (const n of tempNeurons) if (neurons[n]) neurons[n].activation = stimuli.temp;
             for (const n of foodNeurons) if (neurons[n]) neurons[n].activation = stimuli.hunger;
+
 
             const input = {};
             for (const name in neurons) input[name] = 0;

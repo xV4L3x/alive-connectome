@@ -175,21 +175,36 @@ Un pannello `dat.GUI` espone gli slider in tempo reale. I valori vengono passati
 
 | Stimolo | Sorgente | Neuroni target |
 |---|---|---|
-| Luce | calcolata per-verme da `Lights.computeAt()` | AVBL, AVBR, PVCL, PVCR (forward) / AVAL, AVAR, AVDL, AVDR (backward) |
+| Luce | calcolata per-verme da `Lights.computeAt()` | AVAL, AVAR, AVDL, AVDR (backward — contributo lineare: `activation += light × 1.5`) |
 | Temperatura | slider globale [0, 1] | AFDL, AFDR |
 | Fame | stato interno per-verme `wormInstance.hunger` | AWAL, AWAR, ADFL, ADFR |
 
 La luce non è più uno slider globale: ogni verme riceve un valore di luce diverso in base alla propria posizione nella teca e alle intensità correnti dei 4 faretti (vedi sezione Sistema di Illuminazione Multi-Luce — `computeAt`).
 
-**Perché i neuroni di comando e non quelli sensoriali:**
-L'iniezione diretta sui neuroni sensoriali (AWC, ASE) non produce effetti visibili: il segnale si attenua su più hop prima di raggiungere i motoneuroni, mentre il circuito motorio si auto-sostiene tramite loop di feedback. I neuroni di comando (AVB per il forward, AVA per il backward) pilotano direttamente i motoneuroni e producono una risposta immediata.
+**Modello di stimolazione continua:**
+L'iniezione degli interneuroni di comando usa un modello **lineare continuo**, senza soglie if/else, per evitare le oscillazioni discontinue del modello precedente:
+
+- I neuroni **forward** (AVBL, AVBR, PVCL, PVCR) ricevono una baseline costante = **0.5** — il verme esplora in avanti per default anche al buio.
+- I neuroni **backward** (AVAL, AVAR, AVDL, AVDR) ricevono un contributo lineare proporzionale alla luce: `activation += light × 1.5`.
+
+La soglia naturale di inversione si trova a `light ≈ 0.33` (quando il backward drive supera la baseline 0.5 forward). Non esiste discontinuità: a `light = 0.4` il backward drive è 0.6 > 0.5, a `light = 0.32` è 0.48 < 0.5. La vecchia formula if/else a `light = 0.5` produceva un salto istantaneo da AVB a AVA, causando oscillazione frame-per-frame.
 
 **Calcolo ponderato della direzione:**
 La direzione del movimento non è determinata da un singolo stimolo, ma dalla combinazione dell'attività neurale degli interneuroni di comando con un eventuale bias da collisione:
 
 $$\text{forwardDrive} = \frac{1}{4}(\text{AVBL} + \text{AVBR} + \text{PVCL} + \text{PVCR}) + \text{touchForward} + \text{hungerDrive} \cdot k_{hf}$$
 $$\text{backwardDrive} = \frac{1}{4}(\text{AVAL} + \text{AVAR} + \text{AVDL} + \text{AVDR}) + \text{touchBackward}$$
-$$\text{direction} = \begin{cases} +1 & \text{se forwardDrive} \geq \text{backwardDrive} \\ -1 & \text{altrimenti} \end{cases}$$
+
+La decisione finale non usa un if/else istantaneo ma applica una **deadband** e un **filtro passa-basso**:
+
+$$\text{driveDiff} = \text{forwardDrive} - \text{backwardDrive}$$
+$$\text{rawDirection} = \begin{cases} +1 & \text{se driveDiff} \geq -\delta \\ -1 & \text{altrimenti} \end{cases} \qquad \delta = \text{DIRECTION\_DEADBAND} = 0.15$$
+
+La deadband fa sì che il verme rimanga forward finché il backward drive non supera il forward di almeno 0.15 — piccole fluttuazioni non causano inversioni. Il segnale grezzo viene poi smorzato con un filtro passa-basso a tempo continuo:
+
+$$\dot{d}_{smooth} = \lambda \cdot (\text{rawDirection} - d_{smooth}) \qquad \lambda = 5.0\ \text{s}^{-1}$$
+
+Il `direction` effettivo usato dal codice è `sign(directionSmooth)`. Il filtro garantisce che il verme non cambi marcia istantaneamente tra frame consecutivi — la transizione impiega ~0.2 s.
 
 Il bias da collisione (`touchForward` / `touchBackward`) è un impulso esterno al connectome, attivato dal rilevamento di una collisione e descritto nella sezione Movimento del Verme.
 
@@ -197,13 +212,13 @@ Il bias da collisione (`touchForward` / `touchBackward`) è un impulso esterno a
 
 $$\text{hungerDrive} = \begin{cases} (\text{hunger} - 0.5) \cdot 2 & \text{se hunger} > 0.5 \\ 0 & \text{altrimenti} \end{cases}$$
 
-con $k_{hf}$ = `HUNGER_FORWARD_STRENGTH = 2.0`. A `hunger = 1.0` il bias vale 2.0, sufficiente a sovrastare qualsiasi `backwardDrive` (massimo ~1.0 dal connectome). Questo risolve il conflitto tra luce bassa (che attiva AVA → moto all'indietro) e chemotassi (che sterza l'heading verso il cibo): senza questo bias, il verme affamato virava verso il cibo ma ci camminava sopra di schiena allontanandosi. La fame ha priorità sulla luce.
+con $k_{hf}$ = `HUNGER_FORWARD_STRENGTH = 3.0`. A `hunger = 1.0` il bias vale 3.0, sufficiente a sovrastare qualsiasi `backwardDrive` (massimo ~1.0 dal connectome). Questo garantisce che un verme affamato avanzi sempre verso il cibo indipendentemente dalla luce. La fame ha priorità sulla fotofobia.
 
 Il comportamento osservabile:
 
-$$\text{luce} \geq 0.5 \Rightarrow \text{AVB}\ \text{attivi} \Rightarrow \text{forwardDrive alto} \Rightarrow \text{verme avanza}$$
-$$\text{luce} < 0.5,\ \text{hunger} < 0.5 \Rightarrow \text{AVA}\ \text{attivi} \Rightarrow \text{backwardDrive alto} \Rightarrow \text{verme arretra}$$
-$$\text{luce} < 0.5,\ \text{hunger} > 0.5 \Rightarrow \text{hungerDrive sovrasta AVA} \Rightarrow \text{verme avanza verso il cibo}$$
+$$\text{luce} > 0.33,\ \text{hunger} < 0.5 \Rightarrow \text{backward drive} > 0.5 \Rightarrow \text{verme tende ad arretrare (allontanandosi dalla luce)}$$
+$$\text{luce} \leq 0.33,\ \text{hunger} < 0.5 \Rightarrow \text{forward baseline domina} \Rightarrow \text{verme esplora avanti}$$
+$$\text{hunger} > 0.5 \Rightarrow \text{hungerDrive sovrasta backward drive} \Rightarrow \text{verme avanza verso il cibo}$$
 
 ### Movimento del Verme
 
@@ -262,6 +277,36 @@ if (touchTimer > 0) {
 
 Con `TOUCH_STRENGTH = 4.0` e `TOUCH_DURATION = 1.5` s, il bias sovrasta temporaneamente il drive del connectome per circa un secondo e mezzo, forzando l'inversione di marcia prima che il timer scada.
 
+**Omega turn — risposta all'urto frontale:**
+
+La sola retromarcia non basta: senza cambiare direzione il verme tornerebbe contro la stessa parete. Come nel *C. elegans* reale, l'urto frontale innesca una sequenza a tre fasi stereotipata:
+
+1. **Scatto immediato** — la velocità è impostata direttamente a `−MAX_SPEED`, bypassando il FRICTION. Produce una retromarcia istantanea di circa 1–2 lunghezze corporee.
+2. **Rotazione acuta (omega turn)** — `targetHeading` viene spostato di un angolo casuale tra 90° e 180° in direzione casuale. Un timer `omegaTimer = OMEGA_DURATION` attiva la velocità di rotazione rapida `OMEGA_TURN_SPEED = 3.0` rad/s invece dei normali `TURN_SPEED = 0.5` rad/s.
+3. **Ripresa in avanti** — una volta esaurito `omegaTimer`, il verme prosegue nella nuova direzione alla velocità normale.
+
+```javascript
+if (direction > 0) {                                              // urto frontale
+    wormInstance.speed = -MAX_SPEED;
+    const sign = Math.random() < 0.5 ? 1 : -1;
+    wormInstance.targetHeading = wormInstance.heading
+        + sign * (Math.PI * 0.5 + Math.random() * Math.PI * 0.5);
+    wormInstance.omegaTimer = OMEGA_DURATION;
+} else {                                                          // urto in coda
+    wormInstance.speed = MAX_SPEED;
+}
+```
+
+L'urto in coda produce solo lo scatto in avanti — biologicamente corrisponde all'attivazione di PLM → AVB senza coinvolgere il circuito RIM/SMD responsabile dell'omega turn.
+
+**Transizione fluida dell'onda — `freqTimeSmooth`:**
+
+`freqTime` dal connectome può cambiare segno bruscamente in un singolo frame (es. da +2 a −2 quando la direzione si inverte). Nello shader questo produrrebbe un salto discontinuo nell'animazione sinusoidale — l'onda teleporta invece di invertirsi gradualmente. Per evitarlo, `freqTime` non viene passato allo shader direttamente ma filtrato con lo stesso schema passa-basso:
+
+$$\dot{f}_{smooth} = \lambda_f \cdot (\text{freqTime} - f_{smooth}) \qquad \lambda_f = 3.0\ \text{s}^{-1}$$
+
+Lo shader riceve `freqTimeSmooth` al posto di `freqTime`. La transizione da avanti a indietro impiega ~0.3 s: l'onda rallenta attraverso zero, si ferma brevemente, poi riprende nell'altra direzione. Questo è anche biologicamente plausibile — il *C. elegans* non inverte l'onda istantaneamente.
+
 **Collisioni verme-verme:**
 
 Ogni coppia $(i, j)$ con $i < j$ viene testata ogni frame in `checkWormCollisions(worms)`, chiamata dopo aver aggiornato tutti i vermi e prima di disegnarli. L'ordine è importante: se aggiornamento e disegno fossero nello stesso loop, alcuni vermi verrebbero renderizzati prima che le collisioni siano risolte.
@@ -301,7 +346,42 @@ La differenza angolare viene normalizzata in $[-\pi, \pi]$ per garantire la rota
 $$\text{bias} = (\text{hunger} - 0.5) \cdot 2 \qquad \in [0, 1]$$
 $$\Delta\text{heading} = \text{foodDiff} \cdot \text{bias} \cdot k_f \cdot \Delta t$$
 
-dove $k_f$ = `FOOD_TURN_STRENGTH = 1.5`. Il coefficiente `(hunger − 0.5) × 2` vale 0 esattamente a hunger=0.5 e 1 a hunger=1.0 — sotto la soglia il bias è assente, sopra cresce linearmente.
+dove $k_f$ = `FOOD_TURN_STRENGTH = 3.5`. Il coefficiente `(hunger − 0.5) × 2` vale 0 esattamente a hunger=0.5 e 1 a hunger=1.0 — sotto la soglia il bias è assente, sopra cresce linearmente.
+
+**Fotofobia — fuga dalla luce:**
+
+Il *C. elegans* è fortemente fotofobico: la luce è percepita come stimolo nocicettivo e innesca una risposta di fuga. Nella simulazione questo si traduce in un bias direzionale sull'heading, indipendente dal circuito AVA/AVB.
+
+`Lights.computeDirectionAt(position)` restituisce il vettore unitario nel piano XZ che punta dal verme verso il baricentro luminoso ponderato:
+
+$$\mathbf{d}_{luce} = \text{normalize}\!\left(\sum_{i=0}^{3} \frac{I_i}{1 + k \cdot d_i^2} \cdot (\mathbf{L}_i - \mathbf{p})_{XZ}\right)$$
+
+La direzione di fuga è l'opposto: $\mathbf{d}_{fuga} = -\mathbf{d}_{luce}$. Il bias sull'heading usa la stessa convenzione `atan2(x, z)` della chemotassi, con intensità proporzionale alla luce locale:
+
+$$\Delta\text{heading} = \text{lightDiff} \cdot \text{localLight} \cdot k_{fl} \cdot \text{lightFleeScale} \cdot \Delta t$$
+
+con $k_{fl}$ = `LIGHT_FLEE_STRENGTH = 1.2`. In piena luce il verme gira rapidamente verso l'ombra; in penombra la correzione è quasi nulla. La soglia `localLight > 0.05` evita di calcolare direzioni spurie quando è quasi buio.
+
+**fleeMult — inversione della fuga in retromarcia:** quando il verme si muove all'indietro (`direction < 0`), l'heading punta nella direzione opposta alla direzione di moto. Fuggire dalla luce girando *l'heading* nella direzione opposta alla luce significherebbe in realtà *avanzare* verso di essa. Il fattore `fleeMult = direction > 0 ? -1 : 1` inverte il vettore di fuga quando il verme è in retromarcia, garantendo che il moto risultante porti sempre allontanandosi dalla sorgente.
+
+**lightFleeScale — sopravvivenza prima della fotofobia:** quando la fame sale sopra 0.5, la scala della fuga decresce linearmente fino a zero a `hunger = 1.0`:
+
+$$\text{lightFleeScale} = 1 - \max(0,\ (\text{hunger} - 0.5) \cdot 2) \in [0, 1]$$
+
+Un verme sull'orlo della morte ignora completamente la luce per raggiungere il cibo — biologicamente: la sopravvivenza immediata supera il riflesso di fuga.
+
+```javascript
+if (localLight > 0.05) {
+    const lightDir = Lights.computeDirectionAt(wormInstance.position);
+    const fleeMult = direction > 0 ? -1 : 1;
+    const fleeAngle = Math.atan2(fleeMult * lightDir[0], fleeMult * lightDir[2]);
+    let lightDiff = fleeAngle - wormInstance.heading;
+    while (lightDiff >  Math.PI) lightDiff -= 2 * Math.PI;
+    while (lightDiff < -Math.PI) lightDiff += 2 * Math.PI;
+    const lightFleeScale = 1.0 - Math.max(0, (wormInstance.hunger - 0.5) * 2);
+    wormInstance.heading += lightDiff * localLight * LIGHT_FLEE_STRENGTH * lightFleeScale * deltaTime;
+}
+```
 
 ### Oggetti Cibo
 

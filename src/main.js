@@ -128,7 +128,7 @@ async function main() {
         selectionGui.domElement.style.top  = '0px';
         selectionGui.domElement.style.left = '0px';
 
-        const info = { amplitude: 0, direction: 0, speed: 0 };
+        const info = { amplitude: 0, direction: 0, speed: 0, light: 0 };
 
         selectionGui._info = info;
         selectionGui._worm = selectedWorm;
@@ -155,6 +155,8 @@ async function main() {
         motionFolder.add(info, 'amplitude', 0,  1).step(0.01).listen();
         motionFolder.add(info, 'direction', -1, 1).step(1).listen();
         motionFolder.add(info, 'speed', 0,  2).step(0.01).listen();
+        motionFolder.add(info, 'light', 0, 1).step(0.01).listen().name('Light');
+
         motionFolder.add(selectionGui._worm, 'hunger', 0, 1).step(0.01).listen().name('Hunger');
         motionFolder.open();
 
@@ -252,13 +254,15 @@ async function main() {
             const c = selectionGui._worm.connectome;
             const info = selectionGui._info;
             for (const key of Object.keys(info)) {
-                if (key !== 'amplitude' && key !== 'direction' && key !== 'speed')
+                if (key !== 'amplitude' && key !== 'direction' && key !== 'speed' && key !== 'light')
                     info[key] = c.getNeuronActivity(key);
             }
             const wp = c.getWaveParams();
             info.amplitude = wp.amplitude;
             info.direction = wp.direction;
-            info.speed     = Math.abs(selectionGui._worm.speed);
+            info.speed = Math.abs(selectionGui._worm.speed);
+            info.light = Lights.computeAt(selectionGui._worm.position);
+
         }
 
         drawCabinet(gl, cabinet, { viewProjectionMatrix, eye, lightPosition: [2, 3, 4] });

@@ -85,7 +85,7 @@ const WORM_SCALE = 0.3;
 const WORM_RADIUS = 0.8; //hitbox
 const PIROUETTE_MIN = 3.0; // min second between rotation
 const PIROUETTE_MAX = 8.0; // max seconds between rotation
-const FOOD_TURN_STRENGTH = 1.5;
+const FOOD_TURN_STRENGTH = 3.5;
 const TOUCH_STRENGTH = 4.0;
 const TOUCH_DURATION = 1.5;
 const HUNGER_RATE = 0.02;
@@ -93,6 +93,11 @@ const EAT_RADIUS   = 0.8;  // minimum distance to eat
 const EAT_RATE     = 0.10; // hunger decrease step per second
 const CONSUME_RATE = 0.2; // nutrients dropping ratio
 const HUNGER_FORWARD_STRENGTH = 3.0;
+const LIGHT_FLEE_STRENGTH = 1.2;
+const OMEGA_TURN_SPEED = 3.0;   // randians turn
+const OMEGA_DURATION   = 0.8;   // turn duration
+const DIRECTION_DEADBAND = 0.15;
+
 
 
 function initWorm(gl, objData) {
@@ -163,6 +168,9 @@ function createWormInstance(position = [0,0,0], heading = 0) {
         touchDirection: 0,   // +1 push forward (tail touch). -1 push backwards (head touch)
         speed: 0,
         hunger: 0,
+        directionSmooth: 1,
+        freqTimeSmooth: 0,
+        omegaTimer: 0,
         pirouetteTimer: Math.random() * PIROUETTE_MAX,  // random initial offset
         connectome: Connectome.createInstance(),
         alive: true
@@ -177,7 +185,8 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     wormInstance.connectome.updateStimuli({ light: localLight, temp: stimuli.temp, hunger: wormInstance.hunger });
     wormInstance.connectome.step(deltaTime);
 
-    const { amplitude } = wormInstance.connectome.getWaveParams();
+    const { amplitude, freqTime } = wormInstance.connectome.getWaveParams();
+    wormInstance.freqTimeSmooth += (freqTime - wormInstance.freqTimeSmooth) * 3.0 * deltaTime;
 
     const c = wormInstance.connectome;
     const forwardDrive  = (c.getNeuronActivity('AVBL') + c.getNeuronActivity('AVBR') +
@@ -194,7 +203,11 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     }
 
     const hungerDrive = wormInstance.hunger > 0.5 ? (wormInstance.hunger - 0.5) * 2 : 0;
-    const direction = (forwardDrive + touchForward + hungerDrive * HUNGER_FORWARD_STRENGTH) >= (backwardDrive + touchBackward) ? 1 : -1;
+    const driveDiff = (forwardDrive + touchForward + hungerDrive * HUNGER_FORWARD_STRENGTH) - (backwardDrive + touchBackward);
+    const rawDirection = driveDiff >= -DIRECTION_DEADBAND ? 1 : -1;
+    wormInstance.directionSmooth += (rawDirection - wormInstance.directionSmooth) * 5.0 * deltaTime;
+    const direction = Math.sign(wormInstance.directionSmooth);
+
 
     const targetSpeed = amplitude * MAX_SPEED * direction;
     wormInstance.speed += (targetSpeed - wormInstance.speed) * FRICTION * deltaTime;
@@ -208,35 +221,53 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     let diff = wormInstance.targetHeading - wormInstance.heading;
     while (diff >  Math.PI) diff -= 2 * Math.PI;
     while (diff < -Math.PI) diff += 2 * Math.PI;
-    wormInstance.heading += Math.sign(diff) * Math.min(Math.abs(diff), TURN_SPEED * deltaTime);
+    if (wormInstance.omegaTimer > 0) wormInstance.omegaTimer -= deltaTime;
+    const turnSpeed = wormInstance.omegaTimer > 0 ? OMEGA_TURN_SPEED : TURN_SPEED;
+    wormInstance.heading += Math.sign(diff) * Math.min(Math.abs(diff), turnSpeed * deltaTime);
 
-    if (wormInstance.hunger > 0.5 && foods.length > 0) {
-        let nearestFood = null;
-        let nearestDist = Infinity;
 
-        for (const f of foods) {
-            const dx = f.position[0] - wormInstance.position[0];
-            const dz = f.position[2] - wormInstance.position[2];
-            const dist = Math.sqrt(dx * dx + dz * dz);
-            if (dist < nearestDist) { nearestDist = dist; nearestFood = f; }
-        }
+    if (wormInstance.omegaTimer <= 0) {
+        if (wormInstance.hunger > 0.5 && foods.length > 0) {
+            let nearestFood = null;
+            let nearestDist = Infinity;
 
-        if (nearestDist < EAT_RADIUS) {
-            wormInstance.hunger = Math.max(0, wormInstance.hunger - EAT_RATE * deltaTime);
-            nearestFood.nutrients = Math.max(0, nearestFood.nutrients - CONSUME_RATE * deltaTime);
+            for (const f of foods) {
+                const dx = f.position[0] - wormInstance.position[0];
+                const dz = f.position[2] - wormInstance.position[2];
+                const dist = Math.sqrt(dx * dx + dz * dz);
+                if (dist < nearestDist) { nearestDist = dist; nearestFood = f; }
+            }
+
+            if (nearestDist < EAT_RADIUS) {
+                wormInstance.hunger = Math.max(0, wormInstance.hunger - EAT_RATE * deltaTime);
+                nearestFood.nutrients = Math.max(0, nearestFood.nutrients - CONSUME_RATE * deltaTime);
+            } 
+
+            const dx = nearestFood.position[0] - wormInstance.position[0];
+            const dz = nearestFood.position[2] - wormInstance.position[2];
+            const angleToFood = Math.atan2(dx, dz);
+
+            let foodDiff = angleToFood - wormInstance.heading;
+            while (foodDiff >  Math.PI) foodDiff -= 2 * Math.PI;
+            while (foodDiff < -Math.PI) foodDiff += 2 * Math.PI;
+
+            const bias = (wormInstance.hunger - 0.5) * 2; // 0 a hunger=0.5, 1 a hunger=1.0
+
+            wormInstance.heading += foodDiff * bias * FOOD_TURN_STRENGTH * deltaTime;
         } 
 
-        const dx = nearestFood.position[0] - wormInstance.position[0];
-        const dz = nearestFood.position[2] - wormInstance.position[2];
-        const angleToFood = Math.atan2(dx, dz);
+        if (localLight > 0.05) {
+            const lightDir = Lights.computeDirectionAt(wormInstance.position);
+            const fleeMult = direction > 0 ? -1 : 1;
+            const fleeAngle = Math.atan2(fleeMult * lightDir[0], fleeMult * lightDir[2]);
+            let lightDiff = fleeAngle - wormInstance.heading;
+            while (lightDiff >  Math.PI) lightDiff -= 2 * Math.PI;
+            while (lightDiff < -Math.PI) lightDiff += 2 * Math.PI;
+            const lightFleeScale = 1.0 - Math.max(0, (wormInstance.hunger - 0.5) * 2);
+            wormInstance.heading += lightDiff * localLight * LIGHT_FLEE_STRENGTH * lightFleeScale * deltaTime;
+        }
 
-        let foodDiff = angleToFood - wormInstance.heading;
-        while (foodDiff >  Math.PI) foodDiff -= 2 * Math.PI;
-        while (foodDiff < -Math.PI) foodDiff += 2 * Math.PI;
-
-        const bias = (wormInstance.hunger - 0.5) * 2; // 0 a hunger=0.5, 1 a hunger=1.0
-        wormInstance.heading += foodDiff * bias * FOOD_TURN_STRENGTH * deltaTime;
-    } 
+    }
 
 
     wormInstance.position[0] += Math.sin(wormInstance.heading) * wormInstance.speed * deltaTime;
@@ -271,7 +302,19 @@ function checkWallCollision(wormInstance, direction) {
     if (hit) {
         wormInstance.touchTimer = TOUCH_DURATION;
         wormInstance.touchDirection = direction > 0 ? -1 : 1;
+
+        if (direction > 0) {
+            wormInstance.directionSmooth = -1;
+            wormInstance.speed = -MAX_SPEED;
+            const sign = Math.random() < 0.5 ? 1 : -1;
+            wormInstance.targetHeading = wormInstance.heading + sign * (Math.PI * 0.5 + Math.random() * Math.PI * 0.5);
+            wormInstance.omegaTimer = OMEGA_DURATION;
+        } else {
+            wormInstance.speed = MAX_SPEED;
+        }
+
     }
+
 }
 
 function checkWormCollisions(worms) {
@@ -340,7 +383,7 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
 
     //MODEL MATRIX BUILDING
     const [px, py, pz] = wormInstance.position;
-    const { amplitude, freqTime } = wormInstance.connectome.getWaveParams();
+    const { amplitude } = wormInstance.connectome.getWaveParams();
 
     const wormModelMatrix = m4.multiply(
         m4.translation(px, -worm.yMin * WORM_SCALE + py, pz), // translate vertically to not overflow the plane
@@ -359,7 +402,7 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
     gl.uniform1fv(worm.locations.lightIntensities, Lights.getIntensities());
     gl.uniform3fv(worm.locations.viewPosition,  eye);
     gl.uniform1f(worm.locations.amplitude, amplitude * 0.8);
-    gl.uniform1f(worm.locations.freqTime, freqTime);
+    gl.uniform1f(worm.locations.freqTime, wormInstance.freqTimeSmooth);
     gl.uniform1f(worm.locations.freqSpace, 6.28);
     gl.uniform1f(worm.locations.time, time);
     gl.uniform1f(worm.locations.bodyMin, worm.bodyMin);
