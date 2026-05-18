@@ -170,6 +170,10 @@ async function main() {
         selectionGui.add({
             deselect: () => { selectedWorm = null; rebuildSelectionGui(); }
         }, 'deselect').name('Deselect');
+
+        selectionGui.add({
+            kill: () => { selectedWorm.alive = false; selectedWorm = null; rebuildSelectionGui(); }
+        }, 'kill').name('Kill Worm');
     }
 
 
@@ -233,6 +237,13 @@ async function main() {
         for (let i = foods.length - 1; i >= 0; i--) {
             if (foods[i].nutrients <= 0) foods.splice(i, 1);
         }
+        for (let i = worms.length - 1; i >= 0; i--) {
+            if (!worms[i].alive) {
+                if (worms[i] === selectedWorm) { selectedWorm = null; rebuildSelectionGui(); }
+                worms.splice(i, 1);
+            }
+        }
+
 
         
         for (const wormInstance of worms) {

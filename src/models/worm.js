@@ -169,6 +169,7 @@ function createWormInstance(position = [0,0,0], heading = 0) {
 
 function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     wormInstance.hunger = Math.min(1, wormInstance.hunger + HUNGER_RATE * deltaTime);
+    if (wormInstance.hunger >= 1.0) wormInstance.alive = false;
 
     wormInstance.connectome.updateStimuli({ light: stimuli.light, temp: stimuli.temp, hunger: wormInstance.hunger });
     wormInstance.connectome.step(deltaTime);
