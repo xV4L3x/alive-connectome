@@ -50,6 +50,7 @@ async function main() {
     const plane = await initPlane(gl);
     const tank = initTank(gl);
     //const cabinet = initCabinet(gl);
+    const spotlight = initSpotlight(gl);
 
     gl.enable(gl.DEPTH_TEST); //control depth faces
     gl.clearColor(0.1, 0.1, 0.1, 1.0);
@@ -67,6 +68,15 @@ async function main() {
     gui.add(params, 'light',  0, 1).step(0.01).name('Light');
     gui.add(params, 'temp',   0, 1).step(0.01).name('Temperature');
     gui.add(params, 'hunger', 0, 1).step(0.01).name('Hunger');
+
+    const lightsFolder = gui.addFolder('Lights');
+    const lightIntensities = Lights.getIntensitiesRaw();
+    lightsFolder.add({ l1: lightIntensities[0] }, 'l1', 0, 1).step(0.01).name('Front Left') .onChange(v => Lights.setIntensity(0, v));
+    lightsFolder.add({ l2: lightIntensities[1] }, 'l2', 0, 1).step(0.01).name('Front Right').onChange(v => Lights.setIntensity(1, v));
+    lightsFolder.add({ l3: lightIntensities[2] }, 'l3', 0, 1).step(0.01).name('Back Left')  .onChange(v => Lights.setIntensity(2, v));
+    lightsFolder.add({ l4: lightIntensities[3] }, 'l4', 0, 1).step(0.01).name('Back Right') .onChange(v => Lights.setIntensity(3, v));
+    lightsFolder.open();
+
 
 
     let time = 0;
@@ -109,7 +119,6 @@ async function main() {
         drawWorm(gl, worm, {
             viewProjectionMatrix,
             eye,
-            lightPosition: [2, 3, 4],
             time,
             amplitude,
             freqTime,
@@ -120,8 +129,9 @@ async function main() {
         drawPlane(gl, plane, {
             viewProjectionMatrix,
             eye,
-            lightPosition: [2, 3, 4],
         });
+
+        drawSpotlight(gl, spotlight, { viewProjectionMatrix });
 
         drawTank(gl, tank, {
             viewProjectionMatrix

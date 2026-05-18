@@ -227,6 +227,78 @@ $$\Delta y = -y_{min} \cdot s$$
 
 dove $s$ è il fattore di scala. Garantisce che il punto più basso del verme sia a Y=0 indipendentemente dal modello caricato.
 
+### Sistema di Illuminazione Multi-Luce
+
+La scena è illuminata da **4 faretti** posizionati agli angoli superiori della teca, alle coordinate $(\pm W,\ H,\ \pm D)$ dove $W$ = `TANK_WIDTH`, $H$ = `TANK_HEIGHT`, $D$ = `TANK_DEPTH`. Le posizioni sono calcolate automaticamente da `lights.js` leggendo le costanti della teca, in modo che le luci si aggiornino automaticamente al variare delle dimensioni.
+
+Il fragment shader riceve le 4 posizioni e intensità come array uniform e accumula il contributo Phong di ciascuna luce:
+
+```glsl
+uniform vec3  u_lightPositions[4];
+uniform float u_lightIntensities[4];
+
+vec3 result = 0.3 * color;              // ambient calcolato una sola volta
+
+for (int i = 0; i < 4; i++) {
+    vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos);
+
+    float diff   = max(dot(normal, lightDir), 0.0);
+    vec3 diffuse = diff * color * u_lightIntensities[i];
+
+    vec3  reflectDir = reflect(-lightDir, normal);
+    float spec       = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+    vec3  specular   = 0.2 * spec * vec3(1.0) * u_lightIntensities[i];
+
+    result += diffuse + specular;
+}
+```
+
+L'ambient è sommato una sola volta fuori dal loop perché rappresenta la luce ambientale indipendente dalle sorgenti puntuali. Ogni luce contribuisce con diffuse e specular scalati per la propria intensità, controllabile in tempo reale tramite slider `dat.GUI`.
+
+### Faretti della Teca — Orientamento Direzionale
+
+Ogni faretto è un cilindro 3D generato proceduralmente, posizionato agli angoli superiori della teca e orientato in modo che la propria apertura (fondo) punti verso l'origine $\mathbf{O} = (0,0,0)$.
+
+**Geometria del cilindro:** generata con un loop che suddivide il cerchio in $N$ spicchi. Per ogni spicchio $i$ con angoli $\theta_1 = \frac{i}{N} 2\pi$ e $\theta_2 = \frac{i+1}{N} 2\pi$:
+
+$$\text{bordo}_i = (r\cos\theta,\ 0,\ r\sin\theta) \quad \text{con } \theta \in \{\theta_1, \theta_2\}$$
+
+Si generano 2 triangoli per la superficie laterale e 1 per il disco superiore (chiuso). Il fondo rimane aperto — è l'apertura da cui esce la luce.
+
+**Calcolo dell'orientamento:** dato un faretto in posizione $\mathbf{P} = (p_x,\ p_y,\ p_z)$, la direzione verso il centro è:
+
+$$\mathbf{d} = \text{normalize}(\mathbf{O} - \mathbf{P}) = \text{normalize}(-p_x,\ -p_y,\ -p_z)$$
+
+L'orientamento del cilindro si ottiene con due rotazioni sequenziali:
+
+**1. Yaw $\varphi$ — rotazione attorno all'asse Y (piano orizzontale XZ):**
+
+$$\varphi = \text{atan2}(-p_x,\ -p_z)$$
+
+$\text{atan2}(a, b)$ restituisce l'angolo della direzione $(b, a)$ nel range $(-\pi, \pi]$, gestendo correttamente tutti e 4 i quadranti. Usare $\text{atan}(-p_x / -p_z)$ non sarebbe sufficiente perché non distingue i quadranti opposti: ad esempio $(-5, -5)$ e $(5, 5)$ darebbero lo stesso valore di $\arctan$ pur essendo direzioni opposte. Con $\text{atan2}(-p_x, -p_z)$ i segni separati dei due argomenti identificano univocamente il quadrante.
+
+Nota: in WebGL l'asse Z cresce verso la camera (sistema right-handed), quindi l'angolo nel piano orizzontale si calcola su $(x, z)$ e non su $(x, y)$ come in un piano 2D classico.
+
+**2. Pitch $\alpha$ — inclinazione verso il basso (piano verticale):**
+
+$$\alpha = \text{atan2}\!\left(\sqrt{p_x^2 + p_z^2},\ p_y\right)$$
+
+$\sqrt{p_x^2 + p_z^2}$ è la distanza orizzontale del faretto dall'asse verticale centrale. Il rapporto tra distanza orizzontale e altezza $p_y$ determina l'angolo di inclinazione dalla verticale: se il faretto è direttamente sopra il centro ($\text{horizontal} = 0$) l'inclinazione è nulla; più è lontano in XZ rispetto all'altezza, più si avvicina all'orizzontale.
+
+**Ordine delle trasformazioni:**
+
+$$\mathbf{M} = \mathbf{T}(p_x, p_y, p_z)\ \cdot\ R_Y(\varphi)\ \cdot\ R_X(-\alpha)$$
+
+Le matrici si applicano **da destra verso sinistra** su ogni vertice $\mathbf{v}$:
+
+$$\mathbf{M} \cdot \mathbf{v} = \mathbf{T} \cdot \bigl(R_Y \cdot (R_X \cdot \mathbf{v})\bigr)$$
+
+1. $R_X(-\alpha)$ — inclina il cilindro nel piano YZ locale. Il segno negativo è necessario: $R_X$ positivo inclinerebbe il fondo verso $-Z$ locale (allontanandosi dal centro), mentre il segno negativo lo porta verso $+Z$ locale (verso il centro dopo la rotazione Y).
+2. $R_Y(\varphi)$ — ruota il cilindro attorno a Y nella direzione orizzontale corretta.
+3. $\mathbf{T}$ — trasla il cilindro all'angolo della teca.
+
+Il materiale è **emissivo**: il fragment shader restituisce un colore costante indipendente dall'illuminazione, così il faretto appare sempre luminoso come una sorgente di luce.
+
 ## References
 - Worm 3D model: [VirtualWorm](http://www.openworm.org/animatedworm.html) — WormBase / Caltech, MIT License
 - Connectome dataset: [OpenWorm / CElegansNeuroML](https://github.com/openworm/CElegansNeuroML) — MIT License

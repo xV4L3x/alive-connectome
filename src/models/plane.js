@@ -28,32 +28,42 @@ const planeFragmentShaderSource = `
     varying vec2 v_texCoord;
 
     uniform sampler2D u_texture;
-    uniform vec3 u_lightPosition;
+    uniform vec3 u_lightPositions[4];
+    uniform float u_lightIntensities[4];
     uniform vec3 u_viewPosition;
 
     void main() {
         vec3 color = texture2D(u_texture, v_texCoord).rgb;
 
         vec3 normal = normalize(v_normal);
-        vec3 lightDir = normalize(u_lightPosition - v_worldPos);
         vec3 viewDir = normalize(u_viewPosition - v_worldPos);
 
+        //ambient light calculated one time
         float ambientStrength = 0.4;
         vec3 ambient = ambientStrength * color;
 
-        float diff = max(dot(normal, lightDir), 0.0);
-        vec3 diffuse = diff * color;
-
         float specularStrength = 0.1;
-        vec3 reflectDir = reflect(-lightDir, normal);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
-        vec3 specular = specularStrength * spec * vec3(1.0);
 
-        gl_FragColor = vec4(ambient + diffuse + specular, 1.0);
+        for (int i = 0; i < 4; i++) { 
+            vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos);
+
+            //diffuse light
+            float diff = max(dot(normal, lightDir), 0.0);
+            vec3 diffuse = diff * color * u_lightIntensities[i];
+
+            //specular light
+            vec3 reflectDir = reflect(-lightDir, normal);
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
+            vec3 specular = specularStrength * spec * vec3(1.0) * u_lightIntensities[i];
+
+            ambient += diffuse + specular;
+        }
+
+        gl_FragColor = vec4(ambient, 1.0);
     }
 `;
 
-const PLANE_EXTENSION = 5;
+const PLANE_EXTENSION = 8;
 
 //XYZ: x -> side, y -> vertical, z -> depth
 const planePositions = new Float32Array([
@@ -122,7 +132,8 @@ async function initPlane(gl) {
         locations: {
             matrix: gl.getUniformLocation(program, 'u_matrix'),
             modelMatrix: gl.getUniformLocation(program, 'u_modelMatrix'),
-            lightPosition: gl.getUniformLocation(program, 'u_lightPosition'),
+            lightPositions: gl.getUniformLocation(program, 'u_lightPositions'),
+            lightIntensities: gl.getUniformLocation(program, 'u_lightIntensities'),
             viewPosition: gl.getUniformLocation(program, 'u_viewPosition'),
             textureLoc: gl.getUniformLocation(program, 'u_texture'),
             position: gl.getAttribLocation(program, 'a_position'),
@@ -156,7 +167,8 @@ function drawPlane(gl, plane, { viewProjectionMatrix, eye, lightPosition }) {
 
     gl.uniformMatrix4fv(plane.locations.matrix,      false, planeMvpMatrix);
     gl.uniformMatrix4fv(plane.locations.modelMatrix, false, planeModelMatrix);
-    gl.uniform3fv(plane.locations.lightPosition, lightPosition);
+    gl.uniform3fv(plane.locations.lightPositions, Lights.getPositionsFlat());
+    gl.uniform1fv(plane.locations.lightIntensities, Lights.getIntensities());
     gl.uniform3fv(plane.locations.viewPosition,  eye);
 
     gl.drawArrays(gl.TRIANGLES, 0, plane.vertexCount);

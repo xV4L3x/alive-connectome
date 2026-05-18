@@ -24,9 +24,9 @@ const tankFragmentShaderSource = `
     }
 `;
 
-const TANK_WIDTH = 5; //from -TANK_WIDTH to TANK_WIDTH
-const TANK_HEIGHT = 3; //from 0 to TANK_HEIGHT
-const TANK_DEPTH = 5; //from -TANK_DEPTH to TANK_DEPTH
+const TANK_WIDTH = 8; //from -TANK_WIDTH to TANK_WIDTH
+const TANK_HEIGHT = 4; //from 0 to TANK_HEIGHT
+const TANK_DEPTH = 8; //from -TANK_DEPTH to TANK_DEPTH
 
 const planningVectors = {
     A: [-TANK_WIDTH, 0, TANK_DEPTH],

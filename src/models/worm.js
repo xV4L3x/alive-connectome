@@ -39,30 +39,37 @@ const wormFragmentShaderSource = `
     varying vec3 v_normal;
     varying vec3 v_worldPos;
 
-    uniform vec3 u_lightPosition;
-    uniform vec3 u_viewPosition;
+    uniform vec3 u_lightPositions[4]; //4 lights, one each angle
+    uniform float u_lightIntensities[4];
+    uniform vec3 u_viewPosition; //camera position
 
 
     void main() {
-        vec3 normal = normalize(v_normal);
-        vec3 lightDir = normalize(u_lightPosition - v_worldPos); //surface towards light
+        vec3 normal = normalize(v_normal); //normalize because it might not be unitary after interpolation
         vec3 viewDir = normalize(u_viewPosition - v_worldPos); //surface towards camera
 
         //ambient
         float ambientStrength = 0.4;
         vec3 ambient = ambientStrength * v_color.rgb;
 
-        //diffuse
-        float diff = max(dot(normal, lightDir), 0.0); //when surface is towards the light (avoid negative)
-        vec3 diffuse = diff * v_color.rgb;
-
-        //specular
         float specularStrength = 0.2;
-        vec3 reflectDir = reflect(-lightDir, normal);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0); //reflected ray (higher the ray, lower the reflection) (avoid negative)
-        vec3 specular = specularStrength * spec * vec3(1.0, 1.0, 1.0); //white reflection (1,1,1) rgb
+
+        for (int i = 0; i < 4; i++) {
+            vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos); //surface towards light direction
+
+            //diffuse
+            float diff = max(dot(normal, lightDir), 0.0); //how much surface is towards the light (avoid negative, in shadow)
+            vec3 diffuse = diff * v_color.rgb * u_lightIntensities[i];
+
+            //specular
+            vec3 reflectDir = reflect(-lightDir, normal);
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0); //reflected ray (higher the ray, lower the reflection) (avoid negative)
+            vec3 specular = specularStrength * spec * vec3(1.0, 1.0, 1.0) * u_lightIntensities[i]; //white reflection (1,1,1) if aligned to camera
+
+            ambient += diffuse + specular;
+        }
     
-        gl_FragColor = vec4(ambient + diffuse + specular, 1.0);
+        gl_FragColor = vec4(ambient, 1.0);
     }
 `;
 
@@ -114,7 +121,8 @@ function initWorm(gl, objData) {
             time: gl.getUniformLocation(program, 'u_time'),
             bodyMin: gl.getUniformLocation(program, 'u_bodyMin'),
             bodyMax: gl.getUniformLocation(program, 'u_bodyMax'),
-            lightPosition: gl.getUniformLocation(program, 'u_lightPosition'),
+            lightPositions: gl.getUniformLocation(program, 'u_lightPositions'),
+            lightIntensities: gl.getUniformLocation(program, 'u_lightIntensities'),
             viewPosition: gl.getUniformLocation(program, 'u_viewPosition'),
             position: gl.getAttribLocation(program, 'a_position'),
             color: gl.getAttribLocation(program, 'a_color'),
@@ -129,7 +137,7 @@ function initWorm(gl, objData) {
  * @param {*} worm 
  * @param {*} param2 
  */
-function drawWorm(gl, worm, { viewProjectionMatrix, eye, lightPosition, time, amplitude, freqTime }) {
+function drawWorm(gl, worm, { viewProjectionMatrix, eye, time, amplitude, freqTime }) {
     gl.useProgram(worm.program);
 
     //STRUCTURE:
@@ -161,7 +169,8 @@ function drawWorm(gl, worm, { viewProjectionMatrix, eye, lightPosition, time, am
     //Write values
     gl.uniformMatrix4fv(worm.locations.matrix,      false, wormMvpMatrix);
     gl.uniformMatrix4fv(worm.locations.modelMatrix, false, wormModelMatrix);
-    gl.uniform3fv(worm.locations.lightPosition, lightPosition);
+    gl.uniform3fv(worm.locations.lightPositions, Lights.getPositionsFlat());
+    gl.uniform1fv(worm.locations.lightIntensities, Lights.getIntensities());
     gl.uniform3fv(worm.locations.viewPosition,  eye);
     gl.uniform1f(worm.locations.amplitude, amplitude * 0.5);
     gl.uniform1f(worm.locations.freqTime,   freqTime);

@@ -4,7 +4,7 @@ function createCamera() {
     return {
         azimuth:   0.0,
         elevation: 0.3,
-        distance:  5,
+        distance:  30,
         target:    [0, 0, 0],
     };
 }
