@@ -229,6 +229,11 @@ async function main() {
             updateWorm(wormInstance, deltaTime, params, foods);
         }
         checkWormCollisions(worms);
+        //delete food if reachs 0
+        for (let i = foods.length - 1; i >= 0; i--) {
+            if (foods[i].nutrients <= 0) foods.splice(i, 1);
+        }
+
         
         for (const wormInstance of worms) {
             drawWorm(gl, wormGPU, wormInstance, { viewProjectionMatrix, eye, time }, wormInstance === hoveredWorm);

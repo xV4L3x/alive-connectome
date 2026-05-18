@@ -89,6 +89,9 @@ const FOOD_TURN_STRENGTH = 1.5;
 const TOUCH_STRENGTH = 4.0;
 const TOUCH_DURATION = 1.5;
 const HUNGER_RATE = 0.02;
+const EAT_RADIUS   = 0.8;  // minimum distance to eat
+const EAT_RATE     = 0.05; // hunger decrease step per second
+const CONSUME_RATE = EAT_RATE; // nutrients dropping ratio
 
 function initWorm(gl, objData) {
     const program = createShaderProgram(gl, wormVertexShaderSource, wormFragmentShaderSource);
@@ -212,6 +215,11 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
             const dist = Math.sqrt(dx * dx + dz * dz);
             if (dist < nearestDist) { nearestDist = dist; nearestFood = f; }
         }
+
+        if (nearestDist < EAT_RADIUS) {
+            wormInstance.hunger = Math.max(0, wormInstance.hunger - EAT_RATE * deltaTime);
+            nearestFood.nutrients = Math.max(0, nearestFood.nutrients - CONSUME_RATE * deltaTime);
+        } 
 
         const dx = nearestFood.position[0] - wormInstance.position[0];
         const dz = nearestFood.position[2] - wormInstance.position[2];
