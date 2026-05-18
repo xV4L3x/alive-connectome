@@ -48,7 +48,8 @@ async function main() {
     
     const worm = initWorm(gl, objData);
     const plane = await initPlane(gl);
-    const tank = await initTank(gl);
+    const tank = initTank(gl);
+    //const cabinet = initCabinet(gl);
 
     gl.enable(gl.DEPTH_TEST); //control depth faces
     gl.clearColor(0.1, 0.1, 0.1, 1.0);
@@ -113,6 +114,8 @@ async function main() {
             amplitude,
             freqTime,
         });
+
+        //drawCabinet(gl, cabinet, { viewProjectionMatrix, eye, lightPosition: [2, 3, 4] });
 
         drawPlane(gl, plane, {
             viewProjectionMatrix,
