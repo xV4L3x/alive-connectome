@@ -90,8 +90,10 @@ const TOUCH_STRENGTH = 4.0;
 const TOUCH_DURATION = 1.5;
 const HUNGER_RATE = 0.02;
 const EAT_RADIUS   = 0.8;  // minimum distance to eat
-const EAT_RATE     = 0.05; // hunger decrease step per second
-const CONSUME_RATE = EAT_RATE; // nutrients dropping ratio
+const EAT_RATE     = 0.10; // hunger decrease step per second
+const CONSUME_RATE = 0.2; // nutrients dropping ratio
+const HUNGER_FORWARD_STRENGTH = 3.0;
+
 
 function initWorm(gl, objData) {
     const program = createShaderProgram(gl, wormVertexShaderSource, wormFragmentShaderSource);
@@ -190,7 +192,8 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
         else                                  touchBackward = intensity;
     }
 
-    const direction = (forwardDrive + touchForward) >= (backwardDrive + touchBackward) ? 1 : -1;
+    const hungerDrive = wormInstance.hunger > 0.5 ? (wormInstance.hunger - 0.5) * 2 : 0;
+    const direction = (forwardDrive + touchForward + hungerDrive * HUNGER_FORWARD_STRENGTH) >= (backwardDrive + touchBackward) ? 1 : -1;
 
     const targetSpeed = amplitude * MAX_SPEED * direction;
     wormInstance.speed += (targetSpeed - wormInstance.speed) * FRICTION * deltaTime;

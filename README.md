@@ -185,16 +185,23 @@ L'iniezione diretta sui neuroni sensoriali (AWC, ASE) non produce effetti visibi
 **Calcolo ponderato della direzione:**
 La direzione del movimento non è determinata da un singolo stimolo, ma dalla combinazione dell'attività neurale degli interneuroni di comando con un eventuale bias da collisione:
 
-$$\text{forwardDrive} = \frac{1}{4}(\text{AVBL} + \text{AVBR} + \text{PVCL} + \text{PVCR}) + \text{touchForward}$$
+$$\text{forwardDrive} = \frac{1}{4}(\text{AVBL} + \text{AVBR} + \text{PVCL} + \text{PVCR}) + \text{touchForward} + \text{hungerDrive} \cdot k_{hf}$$
 $$\text{backwardDrive} = \frac{1}{4}(\text{AVAL} + \text{AVAR} + \text{AVDL} + \text{AVDR}) + \text{touchBackward}$$
 $$\text{direction} = \begin{cases} +1 & \text{se forwardDrive} \geq \text{backwardDrive} \\ -1 & \text{altrimenti} \end{cases}$$
 
 Il bias da collisione (`touchForward` / `touchBackward`) è un impulso esterno al connectome, attivato dal rilevamento di una collisione e descritto nella sezione Movimento del Verme.
 
+**Hunger forward bias** — quando `hunger > 0.5`, la fame aggiunge un contributo extra al `forwardDrive`:
+
+$$\text{hungerDrive} = \begin{cases} (\text{hunger} - 0.5) \cdot 2 & \text{se hunger} > 0.5 \\ 0 & \text{altrimenti} \end{cases}$$
+
+con $k_{hf}$ = `HUNGER_FORWARD_STRENGTH = 2.0`. A `hunger = 1.0` il bias vale 2.0, sufficiente a sovrastare qualsiasi `backwardDrive` (massimo ~1.0 dal connectome). Questo risolve il conflitto tra luce bassa (che attiva AVA → moto all'indietro) e chemotassi (che sterza l'heading verso il cibo): senza questo bias, il verme affamato virava verso il cibo ma ci camminava sopra di schiena allontanandosi. La fame ha priorità sulla luce.
+
 Il comportamento osservabile:
 
 $$\text{luce} \geq 0.5 \Rightarrow \text{AVB}\ \text{attivi} \Rightarrow \text{forwardDrive alto} \Rightarrow \text{verme avanza}$$
-$$\text{luce} < 0.5 \Rightarrow \text{AVA}\ \text{attivi} \Rightarrow \text{backwardDrive alto} \Rightarrow \text{verme arretra}$$
+$$\text{luce} < 0.5,\ \text{hunger} < 0.5 \Rightarrow \text{AVA}\ \text{attivi} \Rightarrow \text{backwardDrive alto} \Rightarrow \text{verme arretra}$$
+$$\text{luce} < 0.5,\ \text{hunger} > 0.5 \Rightarrow \text{hungerDrive sovrasta AVA} \Rightarrow \text{verme avanza verso il cibo}$$
 
 ### Movimento del Verme
 
@@ -349,13 +356,53 @@ wormInstance.connectome.updateStimuli({
 
 Gli stimoli `light` e `temp` sono globali — controllati dagli slider del pannello e uguali per tutti i vermi nella scena. La `hunger` è invece locale: ogni verme ha il proprio stato di fame indipendente, passato come segnale ai neuroni sensoriali del cibo. Questo fa sì che un verme affamato attivi i neuroni AWAL/AWAR/ADFL/ADFR con maggiore intensità, aumentando il bias verso il cibo nella sterzata (vedi sezione Chemotassi).
 
-**Soglia chemotassi:**
+**Soglia chemotassi e mangiare:**
 
-Il bias direzionale verso il cibo si attiva solo quando `hunger > 0.5`. Il coefficiente di intensità vale:
+Quando `hunger > 0.5`, ogni frame viene cercato il cibo più vicino. Il blocco fa due cose indipendenti:
+
+1. **Mangiare** — se il cibo più vicino è entro `EAT_RADIUS = 0.8` (uguale al raggio del hitbox), il verme mangia:
+
+$$\text{hunger} \leftarrow \max(0,\ \text{hunger} - k_e \cdot \Delta t)$$
+$$\text{nutrients} \leftarrow \max(0,\ \text{nutrients} - k_c \cdot \Delta t)$$
+
+con $k_e$ = `EAT_RATE = 0.10` s⁻¹ e $k_c$ = `CONSUME_RATE = 0.02` s⁻¹. Mangiando, la fame cala con netto $-0.08$ s⁻¹ (EAT_RATE − HUNGER_RATE), quindi il verme si sazia da 1.0 a 0 in circa 12 secondi di mangiata continua. Un disco pieno dura ~50 secondi con un verme solo.
+
+Se più vermi mangiano lo stesso disco simultaneamente, ogni verme applica la propria riduzione di `nutrients` indipendentemente — con $N$ vermi il cibo si esaurisce $N$ volte più velocemente, emergendo naturalmente senza logica aggiuntiva.
+
+2. **Chemotassi** — il bias direzionale verso il cibo si applica sempre (quando `hunger > 0.5`), indipendentemente dalla distanza. Il coefficiente di intensità vale:
 
 $$\text{bias} = (\text{hunger} - 0.5) \cdot 2 \in [0,\ 1]$$
 
-Sotto la soglia il verme esplora casualmente; sopra vira progressivamente verso la fonte di cibo più vicina.
+Sotto la soglia il verme esplora casualmente; sopra vira progressivamente verso la fonte più vicina.
+
+**Rimozione cibo esaurito:**
+
+Ogni frame, dopo aver aggiornato tutti i vermi, i cibi con `nutrients <= 0` vengono rimossi dall'array `foods`. L'iterazione avviene al contrario per evitare che `splice` sposti gli indici degli elementi non ancora controllati:
+
+```javascript
+for (let i = foods.length - 1; i >= 0; i--) {
+    if (foods[i].nutrients <= 0) foods.splice(i, 1);
+}
+```
+
+### Morte del Verme
+
+Due cause di morte distinte:
+
+**Morte per inedia** — quando `hunger >= 1.0`, il flag `alive` viene impostato a `false` alla fine di `updateWorm`. Il frame successivo, il loop di pulizia rimuove il verme dall'array:
+
+```javascript
+for (let i = worms.length - 1; i >= 0; i--) {
+    if (!worms[i].alive) {
+        if (worms[i] === selectedWorm) { selectedWorm = null; rebuildSelectionGui(); }
+        worms.splice(i, 1);
+    }
+}
+```
+
+Se il verme che muore è quello selezionato, il pannello di selezione viene chiuso prima della rimozione — altrimenti rimarrebbe un riferimento pendente a un oggetto non più in scena.
+
+**Kill manuale** — il pannello di selezione espone un bottone "Kill Worm" che imposta `alive = false` e azzera la selezione immediatamente. La rimozione dall'array avviene al frame successivo tramite lo stesso loop di pulizia.
 
 ---
 
