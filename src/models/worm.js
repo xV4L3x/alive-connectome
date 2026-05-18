@@ -20,7 +20,6 @@ const wormVertexShaderSource = `
     varying vec3 v_worldPos; //direction from surface to camera (specular effect)
 
     void main() {
-
         float s = (a_position.z - u_bodyMin) / (u_bodyMax - u_bodyMin); //normalize the y  in [0,1] 0=head, 1=tail
         float wave = u_amplitude * sin(u_freqSpace * s + u_freqTime * u_time);
         vec4 deformed = vec4(a_position.x + wave, a_position.y, a_position.z, 1.0);
@@ -43,8 +42,14 @@ const wormFragmentShaderSource = `
     uniform float u_lightIntensities[4];
     uniform vec3 u_viewPosition; //camera position
 
+    uniform float u_isOutline;
 
     void main() {
+        if (u_isOutline > 0.5) {
+            gl_FragColor = vec4(1.0, 0.5, 0.0, 0.65);
+            return;
+        }
+
         vec3 normal = normalize(v_normal); //normalize because it might not be unitary after interpolation
         vec3 viewDir = normalize(u_viewPosition - v_worldPos); //surface towards camera
 
@@ -138,6 +143,7 @@ function initWorm(gl, objData) {
             position: gl.getAttribLocation(program, 'a_position'),
             color: gl.getAttribLocation(program, 'a_color'),
             normal: gl.getAttribLocation(program, 'a_normal'),
+            isOutline: gl.getUniformLocation(program, 'u_isOutline'),
         }
     }
 }
@@ -295,7 +301,7 @@ function checkWormCollisions(worms) {
  * @param {*} worm 
  * @param {*} param2 
  */
-function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }) {
+function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, highlighted = false) {
     gl.useProgram(worm.program);
 
     //STRUCTURE:
@@ -342,5 +348,10 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }) {
     gl.uniform1f(worm.locations.bodyMin, worm.bodyMin);
     gl.uniform1f(worm.locations.bodyMax, worm.bodyMax);
 
+    gl.uniform1f(worm.locations.isOutline, highlighted ? 1.0 : 0.0);
+
+    if (highlighted) gl.enable(gl.BLEND), gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.drawArrays(gl.TRIANGLES, 0, worm.vertexCount);
+    if (highlighted) gl.disable(gl.BLEND);
+
 }

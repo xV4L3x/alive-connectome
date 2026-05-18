@@ -47,9 +47,9 @@ const cabinetFragmentShaderSource = `
 `;
 
 
-const CABINET_WIDTH = 8;    // a bit larger than the tank
-const CABINET_DEPTH = 7;    // a bit deeper than the tank
-const CABINET_HEIGHT = 7;    // from 0 to h
+const CABINET_WIDTH = 12;    // a bit larger than the tank
+const CABINET_DEPTH = 12;    // a bit deeper than the tank
+const CABINET_HEIGHT = 10;    // from 0 to h
 
 const cabinetCorners = {
     // top (Y = 0)
@@ -153,8 +153,8 @@ function drawCabinet(gl, cabinet, { viewProjectionMatrix, eye, lightPosition }) 
     gl.enableVertexAttribArray(cabinet.locations.normal);
     gl.vertexAttribPointer(cabinet.locations.normal, 3, gl.FLOAT, false, 0, 0);
 
-    const cabinetModelMatrix = m4.identity();
-    const cabinetMvpMatrix   = viewProjectionMatrix;
+    const cabinetModelMatrix = m4.translation(0, -0.01, 0);
+    const cabinetMvpMatrix = m4.multiply(viewProjectionMatrix, cabinetModelMatrix);
 
     gl.uniformMatrix4fv(cabinet.locations.matrix,      false, cabinetMvpMatrix);
     gl.uniformMatrix4fv(cabinet.locations.modelMatrix, false, cabinetModelMatrix);

@@ -55,7 +55,7 @@ async function main() {
 
     const plane = await initPlane(gl);
     const tank = initTank(gl);
-    //const cabinet = initCabinet(gl);
+    const cabinet = initCabinet(gl);
     const spotlight = initSpotlight(gl);
 
 
@@ -65,12 +65,25 @@ async function main() {
     const camera = createCamera();
     setupCameraControls(canvas, camera);
 
+    const mouse = { x: 0, y: 0 };
+    canvas.addEventListener('mousemove', e => {
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = e.clientX - rect.left;
+        mouse.y = e.clientY - rect.top;
+    });
+
+    let selectedWorm = null;
+    canvas.addEventListener('click', () => {
+        selectedWorm = hoveredWorm;
+        rebuildSelectionGui();
+    });
+
+
     const params = {
         light:   0.0,
         temp:    0.0,
         hunger:  0.0,
     };
-
 
     //GUI
     const gui = new dat.GUI();
@@ -107,45 +120,64 @@ async function main() {
     gui.add(actions, 'spawn').name("Spawn");
     gui.add(actions, 'spawnFood').name("Spawn Food");
 
-    const debugState = {
-        // circuito avanti
-        AVBL: 0, AVBR: 0, PVCL: 0, PVCR: 0,
-        // circuito indietro
-        AVAL: 0, AVAR: 0, AVDL: 0, AVDR: 0,
-        // neuroni tocco testa
-        ALML: 0, ALMR: 0, AVM: 0,
-        // neuroni tocco coda
-        PLML: 0, PLMR: 0, PVM: 0,
 
-        ASEL: 0, ASER: 0,
 
-        //motors
-        DA01: 0, VB01: 0,
-        // output
-        amplitude: 0, freqTime: 0, direction: 0,
-    };
-    const debugFolder = gui.addFolder('Debug [Worm 0]');
-    for (const key of Object.keys(debugState)) {
-        debugFolder.add(debugState, key, 0, 1).step(0.01).listen();
+    let selectionGui = null;
+    function rebuildSelectionGui() {
+        if (selectionGui) { selectionGui.destroy(); selectionGui = null; }
+        if (!selectedWorm) return;
+
+        selectionGui = new dat.GUI({ autoPlace: true });
+        selectionGui.domElement.style.position = 'absolute';
+        selectionGui.domElement.style.top  = '0px';
+        selectionGui.domElement.style.left = '0px';
+
+        const info = { amplitude: 0, direction: 0, speed: 0 };
+
+        selectionGui._info = info;
+        selectionGui._worm = selectedWorm;
+
+        const groups = {
+            'Forward Circuit': ['AVBL','AVBR','PVCL','PVCR'],
+            'Backward Circuit': ['AVAL','AVAR','AVDL','AVDR','AVEL','AVER'],
+            'Sensory — Light': ['ASEL','ASER','AWCL','AWCR'],
+            'Sensory — Temp': ['AFDL','AFDR'],
+            'Sensory — Food': ['AWAL','AWAR','ADFL','ADFR'],
+            'Touch — Head': ['ALML','ALMR','AVM'],
+            'Touch — Tail': ['PLML','PLMR','PVM'],
+            'Motors — Fwd': ['DB01','DB02','DB03','VB01','VB02','VB03'],
+            'Motors — Bwd': ['DA01','DA02','DA03','VA01','VA02','VA03'],
+        };
+
+        for (const [label, keys] of Object.entries(groups)) {
+            for (const k of keys) info[k] = 0;
+            const f = selectionGui.addFolder(label);
+            for (const k of keys) f.add(info, k, 0, 1).step(0.01).listen();
+        }
+
+        const motionFolder = selectionGui.addFolder('Motion');
+        motionFolder.add(info, 'amplitude', 0,  1).step(0.01).listen();
+        motionFolder.add(info, 'direction', -1, 1).step(1).listen();
+        motionFolder.add(info, 'speed', 0,  2).step(0.01).listen();
+        motionFolder.open();
+
+        selectionGui.add({
+            copy: () => {
+                const lines = Object.entries(info).map(([k, v]) => `${k}: ${v.toFixed(4)}`).join('\n');
+                navigator.clipboard.writeText(lines);
+            }
+        }, 'copy').name('Copy State');
+
+        selectionGui.add({
+            deselect: () => { selectedWorm = null; rebuildSelectionGui(); }
+        }, 'deselect').name('Deselect');
     }
-    const debugActions = {
-      copy: function() {
-          const lines = Object.entries(debugState)
-              .map(([k, v]) => `${k}: ${v.toFixed(4)}`)
-              .join('\n');
-          navigator.clipboard.writeText(lines);
-          console.log('Debug state copied:\n' + lines);
-      }
-    };
-    debugFolder.add(debugActions, 'copy').name('Copy State');
-
-
-
 
 
 
     let time = 0;
     let lastTimestamp = null;
+    let hoveredWorm = null;
 
     function render(timestamp) {
 
@@ -175,33 +207,48 @@ async function main() {
         //VP Matrix, unique that will be applied on different model matrices
         const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
 
+        //Ray tracing for worm
+        hoveredWorm = null;
+        const inverseVP = m4.inverse(viewProjectionMatrix);
+        const ray = buildRay(mouse.x, mouse.y, canvas, inverseVP);
+        let minDist = Infinity;
+        for (const worm of worms) {
+            const center = [worm.position[0], worm.position[1] + 1.0, worm.position[2]];
+            if (raySphereIntersect(ray, center, 1.2)) {
+                const dx = worm.position[0] - eye[0];
+                const dz = worm.position[2] - eye[2];
+                const dist = dx*dx + dz*dz;
+                if (dist < minDist) { minDist = dist; hoveredWorm = worm; }
+            }
+        }
+        canvas.style.cursor = hoveredWorm ? 'pointer' : 'default';
+
+
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         for (const wormInstance of worms) {
             updateWorm(wormInstance, deltaTime, params, foods);
         }
         checkWormCollisions(worms);
-
         
         for (const wormInstance of worms) {
-            drawWorm(gl, wormGPU, wormInstance, { viewProjectionMatrix, eye, time });
+            drawWorm(gl, wormGPU, wormInstance, { viewProjectionMatrix, eye, time }, wormInstance === hoveredWorm);
         }
 
-
-        if (worms.length > 0) {
-            const c = worms[0].connectome;
-            for (const key of ['AVBL','AVBR','PVCL','PVCR','AVAL','AVAR','AVDL','AVDR',
-                                'ALML','ALMR','AVM','PLML','PLMR','PVM', 'ASEL', 'ASER', 'DA01','VB01']) {
-                debugState[key] = c.getNeuronActivity(key);
+        if (selectionGui && selectionGui._worm) {
+            const c = selectionGui._worm.connectome;
+            const info = selectionGui._info;
+            for (const key of Object.keys(info)) {
+                if (key !== 'amplitude' && key !== 'direction' && key !== 'speed')
+                    info[key] = c.getNeuronActivity(key);
             }
-            const wp = worms[0].connectome.getWaveParams();
-            debugState.amplitude  = wp.amplitude;
-            debugState.freqTime   = wp.freqTime;
-            debugState.direction  = wp.direction;
+            const wp = c.getWaveParams();
+            info.amplitude = wp.amplitude;
+            info.direction = wp.direction;
+            info.speed     = Math.abs(selectionGui._worm.speed);
         }
 
-
-        //drawCabinet(gl, cabinet, { viewProjectionMatrix, eye, lightPosition: [2, 3, 4] });
+        drawCabinet(gl, cabinet, { viewProjectionMatrix, eye, lightPosition: [2, 3, 4] });
 
         drawPlane(gl, plane, {
             viewProjectionMatrix,

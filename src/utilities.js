@@ -133,3 +133,41 @@ function createShaderProgram(gl, vertexSource, fragmentSource) {
     return program;
 }
 
+
+function buildRay(mouseX, mouseY, canvas, inverseVP) {
+    //convert to ndc coordinates [-1,1]
+    const ndcX = (mouseX / canvas.clientWidth)  * 2 - 1;
+    const ndcY = -(mouseY / canvas.clientHeight) * 2 + 1; //invert Y the values of the canvas grow towards bottom
+
+    //inverse transofrmation of world -> NDC. (UN)PROJECTION
+    function unproject(z) {
+        const v = [ndcX, ndcY, z, 1.0];
+        const x = inverseVP[0]*v[0] + inverseVP[4]*v[1] + inverseVP[8] *v[2] + inverseVP[12]*v[3];
+        const y = inverseVP[1]*v[0] + inverseVP[5]*v[1] + inverseVP[9] *v[2] + inverseVP[13]*v[3];
+        const z2= inverseVP[2]*v[0] + inverseVP[6]*v[1] + inverseVP[10]*v[2] + inverseVP[14]*v[3];
+        const w = inverseVP[3]*v[0] + inverseVP[7]*v[1] + inverseVP[11]*v[2] + inverseVP[15]*v[3];
+        return [x/w, y/w, z2/w];
+    }
+
+    //borders of the ray
+    const near = unproject(-1);
+    const far  = unproject( 1);
+
+    //calculate ray direction
+    const dx = far[0]-near[0];
+    const dy = far[1]-near[1];
+    const dz = far[2]-near[2];
+    //normalize
+    const len = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    return { origin: near, dir: [dx/len, dy/len, dz/len] };
+}
+
+function raySphereIntersect(ray, center, radius) {
+    const ox = ray.origin[0] - center[0];
+    const oy = ray.origin[1] - center[1];
+    const oz = ray.origin[2] - center[2];
+    const b = ox*ray.dir[0] + oy*ray.dir[1] + oz*ray.dir[2];
+    const c = ox*ox + oy*oy + oz*oz - radius*radius;
+    return (b*b - c) >= 0;
+}   
+
