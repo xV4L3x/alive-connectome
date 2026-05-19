@@ -97,8 +97,7 @@ const LIGHT_FLEE_STRENGTH = 1.2;
 const OMEGA_TURN_SPEED = 3.0;   // randians turn
 const OMEGA_DURATION   = 0.8;   // turn duration
 const DIRECTION_DEADBAND = 0.15;
-
-
+const OVERRIDE_TURN_RATE = 3.5;
 
 function initWorm(gl, objData) {
     const program = createShaderProgram(gl, wormVertexShaderSource, wormFragmentShaderSource);
@@ -173,13 +172,37 @@ function createWormInstance(position = [0,0,0], heading = 0) {
         omegaTimer: 0,
         pirouetteTimer: Math.random() * PIROUETTE_MAX,  // random initial offset
         connectome: Connectome.createInstance(),
-        alive: true
+        alive: true,
+        overrideActive: false,
+        overrideInput: { x: 0, z: 0 },
+        overrideDir: 1
     }
 }
 
 function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     wormInstance.hunger = Math.min(1, wormInstance.hunger + HUNGER_RATE * deltaTime);
     if (wormInstance.hunger >= 1.0) wormInstance.alive = false;
+
+    //override controls
+    if (wormInstance.overrideActive) {
+        const ix = wormInstance.overrideInput.x;
+        const iz = wormInstance.overrideInput.z;
+        const magnitude = Math.sqrt(ix*ix + iz*iz);
+
+        if (magnitude > 0.01) {
+            const steerDir = wormInstance.overrideDir < 0 ? 1 : -1;
+            const steerScale = 1.0 - Math.abs(ix / magnitude) * 0.4;
+            wormInstance.heading += steerDir * ix * steerScale * OVERRIDE_TURN_RATE * deltaTime;
+            wormInstance.speed = magnitude * MAX_SPEED * wormInstance.overrideDir;
+        } else {
+            wormInstance.speed = 0;
+        }
+
+        wormInstance.position[0] += Math.sin(wormInstance.heading) * wormInstance.speed * deltaTime;
+        wormInstance.position[2] += Math.cos(wormInstance.heading) * wormInstance.speed * deltaTime;
+        checkWallCollision(wormInstance, wormInstance.speed >= 0 ? 1 : -1);
+        return;
+    }
 
     const localLight = Lights.computeAt(wormInstance.position);
     wormInstance.connectome.updateStimuli({ light: localLight, temp: stimuli.temp, hunger: wormInstance.hunger });

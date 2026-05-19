@@ -3,6 +3,69 @@ const params = { temp: 0.0 };
 const cameraState = { mode: 'Free Camera' };
 const MODE_LABELS = ['Free Camera', 'Third Person', 'First Person'];
 
+function updateThumbstickVisibility() {
+    const base = document.getElementById('thumbstick-base');
+    const active = selectedWorm && selectedWorm.overrideActive;
+    base.style.display = active ? 'flex' : 'none';
+}
+
+let thumbstickActive = false;
+let thumbstickOrigin = { x: 0, y: 0 };
+
+function applyThumbstickInput(clientX, clientY) {
+    const base = document.getElementById('thumbstick-base');
+    const knob = document.getElementById('thumbstick-knob');
+    const radius = base.offsetWidth / 2;
+
+    let dx = clientX - thumbstickOrigin.x;
+    let dy = clientY - thumbstickOrigin.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    if (dist > radius) {
+        //radial normalization
+        dx = dx / dist * radius;
+        dy = dy / dist * radius;
+    }
+
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+    if (selectedWorm && selectedWorm.overrideActive) {
+        selectedWorm.overrideInput.x = dx / radius;
+        selectedWorm.overrideInput.z = -dy / radius;
+    }
+}
+
+document.getElementById('thumbstick-base').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    thumbstickActive = true;
+    const rect = e.currentTarget.getBoundingClientRect();
+    //center in the viewport
+    thumbstickOrigin.x = rect.left + rect.width / 2;
+    thumbstickOrigin.y = rect.top + rect.height / 2;
+    applyThumbstickInput(e.clientX, e.clientY);
+    if (selectedWorm && selectedWorm.overrideActive) {
+        selectedWorm.overrideDir = selectedWorm.overrideInput.z >= 0 ? 1 : -1;
+    }
+
+});
+
+document.addEventListener('pointermove', (e) => {
+    if (!thumbstickActive) return;
+    e.preventDefault();
+    applyThumbstickInput(e.clientX, e.clientY);
+});
+
+document.addEventListener('pointerup', () => {
+    if (!thumbstickActive) return;
+    thumbstickActive = false;
+    const knob = document.getElementById('thumbstick-knob');
+    knob.style.transform = 'translate(-50%, -50%)';
+    if (selectedWorm) {
+        selectedWorm.overrideInput.x = 0;
+        selectedWorm.overrideInput.z = 0;
+    }
+});
+
 function updateCameraModeDisplay() {
     cameraState.mode = MODE_LABELS[cameraMode];
 }
@@ -73,6 +136,17 @@ function rebuildSelectionGui() {
     selectionGui.add({
         changeView: () => { cameraMode = (cameraMode + 1) % 3; updateCameraModeDisplay(); }
     }, 'changeView').name('Change View');
+
+    selectionGui.add({
+        toggleOverride: () => {
+            selectedWorm.overrideActive = !selectedWorm.overrideActive;
+            if (!selectedWorm.overrideActive) {
+                selectedWorm.overrideInput.x = 0;
+                selectedWorm.overrideInput.z = 0;
+            }
+            updateThumbstickVisibility();
+        }
+    }, 'toggleOverride').name('Motor Override');
 }
 
 function updateHUD() {

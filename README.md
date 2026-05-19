@@ -631,6 +631,81 @@ Il cursore cambia da freccia a puntatore (`cursor: pointer`) quando `hoveredWorm
 
 ---
 
+### Override Motorio — Thumbstick
+
+Quando un verme è selezionato, il pannello laterale espone il bottone **Motor Override**. Attivandolo, il connectome viene bypassato completamente: i neuroni motori smettono di pilotare il verme e il controllo passa a un thumbstick virtuale visualizzato nella parte inferiore dello schermo.
+
+**Interfaccia thumbstick:**
+
+Il thumbstick è composto da due elementi HTML sovrapposti al canvas:
+
+- `#thumbstick-base` — anello esterno fisso, definisce il raggio di movimento
+- `#thumbstick-knob` — punto interno mobile, segue il dito/mouse entro il raggio
+
+L'elemento usa `touch-action: none` per disabilitare lo scroll/zoom nativo del browser sul componente e `pointer-events: none` sul knob per far passare tutti gli eventi al base sottostante.
+
+**Gestione eventi (Pointer Events API):**
+
+I listener usano la Pointer Events API al posto dei Mouse Events per gestire mouse e touch con lo stesso codice:
+
+- `pointerdown` sul base: registra il centro del base come origine del drag; determina la direzione committata (vedi sotto); applica l'input iniziale
+- `pointermove` sul document: aggiorna posizione del knob e `overrideInput` finché `thumbstickActive` è `true`. Il listener è sul `document` (non sul base) per continuare a ricevere eventi anche quando il dito esce dall'elemento
+- `pointerup` sul document: riporta il knob al centro, azzera `overrideInput`
+
+**Clamping radiale:**
+
+La posizione del knob viene limitata al raggio del base:
+
+$$d = \sqrt{dx^2 + dy^2}$$
+
+$$dx' = \begin{cases} dx & \text{se } d \leq r \\ dx \cdot r / d & \text{altrimenti} \end{cases}$$
+
+L'input normalizzato scritto in `overrideInput` è:
+
+$$ix = dx' / r \in [-1, 1] \qquad iz = -dy' / r \in [-1, 1]$$
+
+Il segno negativo su $dy'$ converte le coordinate DOM (Y crescente verso il basso) in coordinate di movimento (Z positivo = avanti).
+
+**Direzione committata (`overrideDir`):**
+
+Per evitare che ruotare il thumbstick dalla metà superiore a quella inferiore inverta la direzione di marcia a metà gesture, la direzione viene fissata al momento del `pointerdown`:
+
+$$\text{overrideDir} = \begin{cases} +1 & \text{se } iz \geq 0 \text{ (metà superiore = avanti)} \\ -1 & \text{se } iz < 0 \text{ (metà inferiore = indietro)} \end{cases}$$
+
+Il campo `overrideDir` è scritto una sola volta per gesture e non viene mai aggiornato durante il drag.
+
+**Fisica dell'override (in `updateWorm`):**
+
+Quando `overrideActive` è `true`, la funzione salta l'intero blocco connectome e applica direttamente:
+
+$$\text{magnitude} = \sqrt{ix^2 + iz^2}$$
+
+$$v = \text{magnitude} \cdot v_{max} \cdot \text{overrideDir}$$
+
+La velocità usa `overrideDir` per il segno (direzione committata) e `magnitude` per l'intensità — il verme rallenta automaticamente se il pollice si avvicina al centro.
+
+**Sterzata con compensazione di direzione:**
+
+Il componente laterale $ix$ controlla la variazione dell'heading. Per garantire che "destra su schermo = sterza a destra" sia coerente sia in avanti che in indietro, il segno della sterzata viene invertito in base alla direzione committata:
+
+$$\text{steerDir} = \begin{cases} -1 & \text{se overrideDir} \geq 0 \\ +1 & \text{se overrideDir} < 0 \end{cases}$$
+
+Senza questa compensazione, lo stesso incremento di heading produce effetti opposti su schermo tra avanti e indietro, perché il segno della velocità inverte il contributo di $ix$ alla traiettoria percepita.
+
+La variazione di heading per frame è scalata per ridurre lo spinning quando il thumbstick è in posizione diagonale:
+
+$$\text{steerScale} = 1 - \left|\frac{ix}{\text{magnitude}}\right| \cdot 0.4$$
+
+Il fattore $|ix / \text{magnitude}|$ vale 1 quando il thumbstick è puramente laterale (rotazione attenuata del 40%) e 0 quando è puramente verticale (rotazione piena). Questo riduce la tendenza del verme a girare su se stesso in diagonale.
+
+$$\Delta\text{heading} = \text{steerDir} \cdot ix \cdot \text{steerScale} \cdot \omega_{or} \cdot \Delta t$$
+
+con $\omega_{or}$ = `OVERRIDE_TURN_RATE = 3.5` rad/s.
+
+La funzione termina con `return` dopo l'aggiornamento di posizione e la verifica delle collisioni con le pareti, saltando integralmente connectome, pirouette e chemotassi.
+
+---
+
 ### Animazione Sinusoidale del Corpo
 
 Il vertex shader deforma ogni vertice lungo l'asse X (laterale).
