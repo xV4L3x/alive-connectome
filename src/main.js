@@ -43,7 +43,7 @@ async function main() {
 
     const plane = await initPlane(gl);
     const tank = initTank(gl);
-    const cabinet = initCabinet(gl);
+    const cabinet = await initCabinet(gl);
     const room = await initRoom(gl);
     const spotlight = initSpotlight(gl);
 

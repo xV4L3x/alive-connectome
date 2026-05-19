@@ -21,8 +21,8 @@ const spotlightFragmentShaderSource = `
 `;
 
 const CYLINDER_SIDES = 12;
-const CYLINDER_RADIUS = 0.25;
-const CYLINDER_HEIGHT = 0.30;
+const CYLINDER_RADIUS = 0.50;
+const CYLINDER_HEIGHT = 0.40;
 
 function generateCylinderPositions() {
     const positions = [];
