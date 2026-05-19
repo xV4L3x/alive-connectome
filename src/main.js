@@ -44,6 +44,7 @@ async function main() {
     const plane = await initPlane(gl);
     const tank = initTank(gl);
     const cabinet = initCabinet(gl);
+    const room = await initRoom(gl);
     const spotlight = initSpotlight(gl);
 
 
@@ -138,6 +139,7 @@ async function main() {
 
         updateHUD();
 
+        drawRoom(gl, room, { viewProjectionMatrix, eye });
         drawCabinet(gl, cabinet, { viewProjectionMatrix, eye });
         drawPlane(gl, plane, { viewProjectionMatrix, eye,});
         drawSpotlight(gl, spotlight, { viewProjectionMatrix });
