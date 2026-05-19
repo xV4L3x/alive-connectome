@@ -42,14 +42,18 @@ const cabinetFragmentShaderSource = `
         for (int i = 0; i < 4; i++) {
             vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos);
 
+            float dist = length(u_lightPositions[i] - v_worldPos);
+            float attenuation = 1.0 / (1.0 + 0.02 * dist + 0.003 * dist * dist);
+
+
             //diffuse
             float diff = max(dot(normal, lightDir), 0.0);
-            vec3 diffuse = diff * steelColor * u_lightIntensities[i]; 
+            vec3 diffuse = diff * steelColor * u_lightIntensities[i] * attenuation; 
             
             //specular
             vec3 reflectDir = reflect(-lightDir, normal);
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
-            vec3 specular = specularStrength * spec * vec3(1.0) * u_lightIntensities[i];
+            vec3 specular = specularStrength * spec * vec3(1.0) * u_lightIntensities[i] * attenuation;
         
             ambient += diffuse + specular;
         }

@@ -108,5 +108,11 @@ function resolveCamera(camera, cameraMode, selectedWorm) {
         const r = computeFirstPerson(selectedWorm);
         return { eye: r.eye, lookTarget: r.target };
     }
-    return { eye: computeEye(camera), lookTarget: camera.target };
+    const sinMin     = Math.max(-1, (-CABINET_HEIGHT + 0.5 - camera.target[1]) / camera.distance);
+    const minElev    = Math.asin(sinMin);
+    camera.elevation = Math.max(minElev, camera.elevation);
+    const eye = computeEye(camera);
+    return { eye, lookTarget: camera.target };
+
 }
+

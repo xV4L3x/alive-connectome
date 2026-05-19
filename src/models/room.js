@@ -46,12 +46,15 @@ const roomFragmentShaderSource = `
         for (int i = 0; i < 4; i++) {
             vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos);
 
+            float dist = length(u_lightPositions[i] - v_worldPos);
+            float attenuation = 1.0 / (1.0 + 0.02 * dist + 0.003 * dist * dist);
+
             float diff = max(dot(normal, lightDir), 0.0);
-            vec3 diffuse = diff * color * u_lightIntensities[i];
+            vec3 diffuse = diff * color * u_lightIntensities[i] * attenuation;
 
             vec3 reflectDir = reflect(-lightDir, normal);
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-            vec3 specular = specularStrength * spec * vec3(1.0) * u_lightIntensities[i];
+            vec3 specular = specularStrength * spec * vec3(1.0) * u_lightIntensities[i] * attenuation;
 
             ambient += diffuse + specular;
         }
@@ -60,8 +63,11 @@ const roomFragmentShaderSource = `
     }
 `;
 
-const ROOM_SIZE = 40; //half size
+const ROOM_SIZE = 50; //half size
+const ROOM_HEIGHT = 60;
 const TILE_REPEAT = 2;
+const WALL_REPEAT_H = 8;
+const WALL_REPEAT_V = 3;
 
 const roomFloorPositions = new Float32Array([
     -ROOM_SIZE, -CABINET_HEIGHT, -ROOM_SIZE,    -ROOM_SIZE, -CABINET_HEIGHT,  ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT, -ROOM_SIZE,
@@ -79,6 +85,87 @@ const roomFloorUVs = new Float32Array([
     TILE_REPEAT, TILE_REPEAT,
     TILE_REPEAT, 0,
 ]);
+
+
+const roomWallPositions = new Float32Array([
+    //back wall (z = -roomsize)
+    -ROOM_SIZE, -CABINET_HEIGHT, -ROOM_SIZE,    -ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, -ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT, -ROOM_SIZE,
+    -ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, -ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, -ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT, -ROOM_SIZE,
+
+    //left wall (x = -roomsize)
+    -ROOM_SIZE, -CABINET_HEIGHT, ROOM_SIZE,    -ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, ROOM_SIZE,    -ROOM_SIZE, -CABINET_HEIGHT, -ROOM_SIZE,
+    -ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, ROOM_SIZE,    -ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT,-ROOM_SIZE,    -ROOM_SIZE, -CABINET_HEIGHT,             -ROOM_SIZE,
+
+    //right wall (x = roomsize)
+    ROOM_SIZE, -CABINET_HEIGHT, -ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT,-ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT, ROOM_SIZE,
+    ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT,-ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT, ROOM_SIZE,
+
+    //ceiling (y = -cabinetheight + roomheight)
+    -ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, -ROOM_SIZE,    -ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, -ROOM_SIZE,
+    -ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, -ROOM_SIZE,
+
+    //front wall (z = roomside)
+    ROOM_SIZE, -CABINET_HEIGHT, ROOM_SIZE,    ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, ROOM_SIZE,    -ROOM_SIZE, -CABINET_HEIGHT, ROOM_SIZE,
+    ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, ROOM_SIZE,    -ROOM_SIZE, -CABINET_HEIGHT + ROOM_HEIGHT, ROOM_SIZE,    -ROOM_SIZE, -CABINET_HEIGHT, ROOM_SIZE,
+]);
+
+const roomWallNormals = new Float32Array([
+    // back wall
+    0, 0, 1,    0, 0, 1,    0, 0, 1,
+    0, 0, 1,    0, 0, 1,    0, 0, 1,
+    // left wall
+    1, 0, 0,    1, 0, 0,    1, 0, 0,
+    1, 0, 0,    1, 0, 0,    1, 0, 0,
+    // right wall
+    -1, 0, 0,   -1, 0, 0,   -1, 0, 0,
+    -1, 0, 0,   -1, 0, 0,   -1, 0, 0,
+    // ceiling
+    0,-1, 0,    0,-1, 0,    0,-1, 0,
+    0,-1, 0,    0,-1, 0,    0,-1, 0,
+    //front wall
+    0, 0,-1,    0, 0,-1,    0, 0,-1,
+    0, 0,-1,    0, 0,-1,    0, 0,-1,
+]);
+
+const roomWallUVs = new Float32Array([
+    // back wall
+    0, 0,
+    0, WALL_REPEAT_V,
+    WALL_REPEAT_H, 0,
+    0, WALL_REPEAT_V,
+    WALL_REPEAT_H, WALL_REPEAT_V,
+    WALL_REPEAT_H, 0,
+    // left wall
+    0, 0,
+    0, WALL_REPEAT_V,
+    WALL_REPEAT_H, 0,
+    0, WALL_REPEAT_V,
+    WALL_REPEAT_H, WALL_REPEAT_V,
+    WALL_REPEAT_H, 0,
+    // right wall
+    0, 0,
+    0, WALL_REPEAT_V,
+    WALL_REPEAT_H, 0,
+    0, WALL_REPEAT_V,
+    WALL_REPEAT_H, WALL_REPEAT_V,
+    WALL_REPEAT_H, 0,
+    // ceiling
+    0, 0,
+    0, WALL_REPEAT_H,
+    WALL_REPEAT_H, 0,
+    0, WALL_REPEAT_H,
+    WALL_REPEAT_H, WALL_REPEAT_H,
+    WALL_REPEAT_H, 0,
+    //front wall
+    0, 0,
+    0, WALL_REPEAT_V,
+    WALL_REPEAT_H, 0,
+    0, WALL_REPEAT_V,
+    WALL_REPEAT_H, WALL_REPEAT_V,
+    WALL_REPEAT_H, 0,
+
+]);
+
 
 /**
  * 
@@ -99,6 +186,19 @@ async function initRoom(gl) {
     gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, roomFloorUVs, gl.STATIC_DRAW);
 
+    const wallPositionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, wallPositionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, roomWallPositions, gl.STATIC_DRAW);
+
+    const wallNormalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, wallNormalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, roomWallNormals, gl.STATIC_DRAW);
+
+    const wallUvBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, wallUvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, roomWallUVs, gl.STATIC_DRAW);
+
+
     const image = await new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
@@ -113,7 +213,23 @@ async function initRoom(gl) {
 
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
+    const wallImage = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = 'resources/textures/Concrete034_1K-JPG_Color.jpg';
+    });
+
+    const wallTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, wallImage);
+    gl.generateMipmap(gl.TEXTURE_2D);
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
@@ -124,6 +240,11 @@ async function initRoom(gl) {
         uvBuffer,
         texture,
         floorVertexCount: 6,
+        wallPositionBuffer,
+        wallNormalBuffer,
+        wallUvBuffer,
+        wallTexture,
+        wallVertexCount: 5 * 6,
         locations: {
             matrix:           gl.getUniformLocation(program, 'u_matrix'),
             modelMatrix:      gl.getUniformLocation(program, 'u_modelMatrix'),
@@ -173,5 +294,20 @@ function drawRoom(gl, room, { viewProjectionMatrix, eye }) {
     gl.uniform3fv(room.locations.viewPosition, eye);
 
     gl.drawArrays(gl.TRIANGLES, 0, room.floorVertexCount);
+
+
+    //DRAW WALLS
+    gl.bindBuffer(gl.ARRAY_BUFFER, room.wallPositionBuffer);
+    gl.vertexAttribPointer(room.locations.position, 3, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, room.wallNormalBuffer);
+    gl.vertexAttribPointer(room.locations.normal, 3, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, room.wallUvBuffer);
+    gl.vertexAttribPointer(room.locations.texCoord, 2, gl.FLOAT, false, 0, 0);
+
+    gl.bindTexture(gl.TEXTURE_2D, room.wallTexture);
+
+    gl.drawArrays(gl.TRIANGLES, 0, room.wallVertexCount);
 }
 

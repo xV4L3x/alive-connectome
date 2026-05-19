@@ -92,6 +92,18 @@ La view matrix è l'inversa della `lookAt(eye, target, up)`, ricalcolata ogni fr
 
 L'elevation è vincolata all'intervallo $\left(-\frac{\pi}{2} + \varepsilon,\ \frac{\pi}{2} - \varepsilon\right)$ per evitare singolarità ai poli, dove `lookAt` diventa instabile (il vettore `up` e la direzione di vista diventano paralleli).
 
+**Vincolo piano pavimento:**
+
+La camera non può scendere sotto il pavimento della stanza (Y = $-H_{cabinet}$). Il vincolo è calcolato dinamicamente invertendo la formula delle coordinate sferiche per l'asse Y:
+
+$$y_{eye} = t_y + r \cdot \sin\theta \geq -H_{cabinet} + \varepsilon$$
+
+Risolvendo per $\theta$:
+
+$$\theta_{min} = \arcsin\!\left(\text{clamp}\!\left(\frac{-H_{cabinet} + \varepsilon - t_y}{r},\ -1,\ 1\right)\right)$$
+
+dove $\varepsilon = 0.5$ è un margine di sicurezza, $t_y$ la componente Y del target e $r$ la distanza corrente. Il `clamp` su $[-1, 1]$ è necessario perché $\arcsin$ è definita solo in quell'intervallo — senza di esso, se la camera fosse molto vicina al target, il rapporto potrebbe uscire dal dominio. Clampare $\theta$ prima di chiamare `computeEye` preserva la distanza $r$ intatta: la camera si ferma al livello del pavimento senza avvicinarsi al target.
+
 ### Modalità Camera
 
 Quando un verme è selezionato, il pannello di selezione espone il bottone **Change View** che cicla tra tre modalità:
@@ -851,6 +863,66 @@ $$\mathbf{M} \cdot \mathbf{v} = \mathbf{T} \cdot \bigl(R_Y \cdot (R_X \cdot \mat
 3. $\mathbf{T}$ — trasla il cilindro all'angolo della teca.
 
 Il materiale è **emissivo**: il fragment shader restituisce un colore costante indipendente dall'illuminazione, così il faretto appare sempre luminoso come una sorgente di luce.
+
+### Stanza del Laboratorio
+
+La scena è ambientata in una stanza da laboratorio a luci spente. La stanza è una scatola di 80×80 unità nel piano XZ e 30 unità in altezza, centrata sull'origine.
+
+**Geometria:**
+
+Cinque superfici, tutte definite direttamente in coordinate mondo (model matrix = identità):
+
+| Superficie | Posizione | Normale |
+|---|---|---|
+| Pavimento | Y = $-H_{cabinet}$ | $(0, +1, 0)$ |
+| Parete posteriore | Z = $-R_{stanza}$ | $(0, 0, +1)$ |
+| Parete sinistra | X = $-R_{stanza}$ | $(+1, 0, 0)$ |
+| Parete destra | X = $+R_{stanza}$ | $(-1, 0, 0)$ |
+| Parete frontale | Z = $+R_{stanza}$ | $(0, 0, -1)$ |
+| Soffitto | Y = $-H_{cabinet} + H_{stanza}$ | $(0, -1, 0)$ |
+
+con $R_{stanza} = 40$ e $H_{stanza} = 30$.
+
+**Texture:**
+
+- **Pavimento** — piastrelle bianche grandi (`Tiles133D_1K-JPG_Color.jpg`): UV scalate di `TILE_REPEAT = 20` per asse, ogni piastrella occupa 4 unità di scena.
+- **Pareti e soffitto** — cemento (`Concrete034_1K-JPG_Color.jpg`): UV scalate con `WALL_REPEAT_H = 8` orizzontalmente e `WALL_REPEAT_V = 3` verticalmente, ogni blocco occupa circa 10 unità. La modalità `gl.REPEAT` consente alle UV di superare 1.0 ripetendo automaticamente la texture.
+
+**Atmosfera buia — attenuazione quadratica della luce:**
+
+Le superfici della stanza e del cabinet usano un modello di **attenuazione quadratica** che simula la caduta di intensità degli spotlight con la distanza:
+
+$$a(d) = \frac{1}{1 + k_L \cdot d + k_Q \cdot d^2}$$
+
+| Coefficiente | Valore | Ruolo |
+|---|---|---|
+| $k_L$ | 0.02 | **Lineare** — governa la caduta a distanze brevi/medie. Aumentarlo oscura il cabinet stesso. |
+| $k_Q$ | 0.003 | **Quadratico** — domina a grandi distanze. Aumentarlo buia le pareti senza toccare le zone vicine. |
+
+Il termine quadratico cresce molto più rapidamente del lineare: a $d = 30$ vale $k_Q \cdot d^2 = 2.7$ contro $k_L \cdot d = 0.6$, producendo la caduta rapida nelle zone lontane tipica di un laboratorio in penombra.
+
+Valori rappresentativi:
+
+| Distanza | $a(d)$ | Zona |
+|---|---|---|
+| 0 | 1.00 | Direttamente sotto gli spotlight |
+| 10 | 0.67 | Vicino al cabinet |
+| 20 | 0.38 | Metà stanza |
+| 30 | 0.23 | Zona lontana |
+| 40 | 0.15 | Parete |
+
+Nel fragment shader l'attenuazione moltiplica sia il termine diffuse che lo specular, lasciando invariato l'ambient (che è già prossimo a zero: `ambientStrength = 0.03`):
+
+```glsl
+float dist        = length(u_lightPositions[i] - v_worldPos);
+float attenuation = 1.0 / (1.0 + 0.02 * dist + 0.003 * dist * dist);
+
+vec3 diffuse  = diff  * color      * u_lightIntensities[i] * attenuation;
+vec3 specular = spec  * vec3(1.0)  * u_lightIntensities[i] * attenuation;
+```
+
+**Differenza con le superfici interne alla teca:**
+Il piano del terreno e i vermi non usano attenuazione — si trovano sempre a distanza ridotta dagli spotlight e devono apparire pienamente illuminati. L'attenuazione si applica solo alle superfici esterne (stanza e cabinet), dove la distanza dagli spotlight è significativamente maggiore.
 
 ## Limiti
 - Nessuna presenza di sostanze chimiche rilevabili dai vermi
