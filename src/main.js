@@ -46,6 +46,7 @@ async function main() {
     const cabinet = await initCabinet(gl);
     const room = await initRoom(gl);
     const spotlight = initSpotlight(gl);
+    const badge = await initBadge(gl);
 
 
     gl.enable(gl.DEPTH_TEST); //control depth faces
@@ -138,6 +139,7 @@ async function main() {
         updateHUD();
 
         drawRoom(gl, room, { viewProjectionMatrix, eye });
+        drawBadge(gl, badge, { viewProjectionMatrix, eye });
         drawCabinet(gl, cabinet, { viewProjectionMatrix, eye });
         drawPlane(gl, plane, { viewProjectionMatrix, eye,});
         for (const wormInstance of worms) {

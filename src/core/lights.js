@@ -9,7 +9,7 @@ const Lights = (() => {
         [TANK_WIDTH, TANK_HEIGHT, -TANK_DEPTH] //back-right
     ];
 
-    const intensities = [0.0, 0.0, 0.0, 1.0];
+    const intensities = [1.0, 0.0, 0.0, 1.0];
 
     function getPositionsFlat() {
         return new Float32Array(positions.flat());

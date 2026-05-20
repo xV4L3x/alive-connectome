@@ -108,7 +108,7 @@ const DIRECTION_DEADBAND = 0.15;
 const OVERRIDE_TURN_RATE = 3.5;
 const SHADOW_HEIGHT = 0.1;
 const WAVE_AMPLITUDE_MULTIPLIER = 2.0;
-const WAVE_FREQUENCY_MULTIPLIER = 3.0;
+const WAVE_FREQUENCY_MULTIPLIER = 2.0;
 
 function buildShadowMatrix(lx, ly, lz) {
     return new Float32Array([
