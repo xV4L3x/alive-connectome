@@ -206,7 +206,7 @@ Le uniform passate allo shader ogni frame:
 
 | Uniform | Valore | Significato |
 |---|---|---|
-| `u_amplitude` | `amplitude * 0.5` | Ampiezza visiva scalata |
+| `u_amplitude` | `amplitude * WAVE_AMPLITUDE_MULTIPLIER` | Ampiezza visiva scalata; `WAVE_AMPLITUDE_MULTIPLIER = 2.0` |
 | `u_freqTime` | `freqTime` | Velocità temporale onda (segno = direzione) |
 | `u_freqSpace` | `6.28` (costante) | Frequenza spaziale (~1 onda sul corpo) |
 | `u_time` | tempo cumulativo in secondi | Variabile temporale per il seno |
@@ -347,7 +347,7 @@ L'urto in coda produce solo lo scatto in avanti — biologicamente corrisponde a
 
 `freqTime` dal connectome può cambiare segno bruscamente in un singolo frame (es. da +2 a −2 quando la direzione si inverte). Nello shader questo produrrebbe un salto discontinuo nell'animazione sinusoidale — l'onda teleporta invece di invertirsi gradualmente. Per evitarlo, `freqTime` non viene passato allo shader direttamente ma filtrato con lo stesso schema passa-basso:
 
-$$\dot{f}_{smooth} = \lambda_f \cdot (\text{freqTime} - f_{smooth}) \qquad \lambda_f = 3.0\ \text{s}^{-1}$$
+$$\dot{f}_{smooth} = \lambda_f \cdot (\text{freqTime} \cdot k_f - f_{smooth}) \qquad \lambda_f = 3.0\ \text{s}^{-1},\ k_f = \text{WAVE\_FREQUENCY\_MULTIPLIER} = 3.0$$
 
 Lo shader riceve `freqTimeSmooth` al posto di `freqTime`. La transizione da avanti a indietro impiega ~0.3 s: l'onda rallenta attraverso zero, si ferma brevemente, poi riprende nell'altra direzione. Questo è anche biologicamente plausibile — il *C. elegans* non inverte l'onda istantaneamente.
 
@@ -738,6 +738,58 @@ float s = (a_position.z - u_bodyMin) / (u_bodyMax - u_bodyMin);
 float wave = u_amplitude * sin(u_freqSpace * s + u_freqTime * u_time);
 vec4 deformed = vec4(a_position.x + wave, a_position.y, a_position.z, 1.0);
 ```
+
+### Ombre — Planar Shadow Projection
+
+I vermi proiettano ombre sul pavimento usando la tecnica della **planar shadow projection**. Per ogni luce attiva, una shadow matrix trasforma i vertici del modello nel punto ombra corrispondente sul piano y=0, senza shadow map e senza estensioni WebGL.
+
+**Derivazione della shadow matrix:**
+
+Data una luce puntiforme $\mathbf{L} = (l_x, l_y, l_z)$, il punto $S$ dove la retta $\mathbf{L} \to \mathbf{V}$ tocca il piano y=0 soddisfa:
+
+$$t = \frac{l_y}{l_y - v_y} \qquad \mathbf{S} = \mathbf{L} + t(\mathbf{V} - \mathbf{L})$$
+
+Moltiplicando per $(l_y - v_y)$ per eliminare la divisione, in coordinate omogenee:
+
+$$S_x = l_y v_x - l_x v_y \qquad S_y = 0 \qquad S_z = l_y v_z - l_z v_y \qquad w = l_y - v_y$$
+
+Questo si codifica in una matrice 4×4 (column-major per WebGL):
+
+$$M = \begin{pmatrix} l_y & -l_x & 0 & 0 \\ 0 & 0 & 0 & 0 \\ 0 & -l_z & l_y & 0 \\ 0 & -1 & 0 & l_y \end{pmatrix}$$
+
+**Shadow model matrix — perché è separata dalla model matrix del verme:**
+
+Le ombre usano una `shadowModelMatrix` dedicata invece di `wormModelMatrix`:
+
+- **Scala Y = 0** — schiaccia la sezione circolare del corpo prima della proiezione. Senza questo, il diametro del cilindro proietterebbe un'ombra più larga del verme visibile dalla camera.
+- **Traslazione Y = `SHADOW_HEIGHT`** — fornisce una piccola quota (0.1 unità) da cui la shadow matrix calcola lo spostamento direzionale coerente con la posizione della luce. Con Y=0 l'ombra sarebbe esattamente sotto il verme senza direzione.
+- Nessuna correzione $-y_{min} \cdot s$ — i vertici schiacciati partono già a livello del pavimento.
+
+```javascript
+const shadowModelMatrix = m4.multiply(
+    m4.translation(px, SHADOW_HEIGHT, pz),
+    m4.multiply(m4.yRotation(heading), m4.scaling(WORM_SCALE, 0, WORM_SCALE))
+);
+const shadowMVP = m4.multiply(VP, m4.multiply(shadowMatrix, shadowModelMatrix));
+```
+
+Con più luci attive le ombre si sovrappongono tramite alpha blending e si scuriscono nelle zone di intersezione — comportamento fisicamente corretto senza logica aggiuntiva. `gl.polygonOffset(-1, -1)` previene lo z-fighting tra l'ombra e il pavimento.
+
+**Ordine di rendering:**
+
+```
+drawPlane → drawWorms (shadow pass + normal pass) → drawFood → drawSpotlight → drawTank
+```
+
+**Costanti:**
+
+| Costante | Valore | Effetto |
+|---|---|---|
+| `SHADOW_HEIGHT` | 0.1 | Quota di proiezione; aumentarla distanzia l'ombra dal corpo |
+| `WAVE_AMPLITUDE_MULTIPLIER` | 2.0 | Scala `u_amplitude` prima di passarla allo shader |
+| `WAVE_FREQUENCY_MULTIPLIER` | 3.0 | Scala il target di `freqTimeSmooth` nel filtro passa-basso |
+
+---
 
 ### Terreno della Teca con Texture
 

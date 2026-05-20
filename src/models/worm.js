@@ -41,10 +41,18 @@ const wormFragmentShaderSource = `
     uniform vec3 u_lightPositions[4]; //4 lights, one each angle
     uniform float u_lightIntensities[4];
     uniform vec3 u_viewPosition; //camera position
+    uniform float u_advanced;
 
     uniform float u_isOutline;
+    uniform float u_isShadow;
+    uniform float u_shadowAlpha;
 
     void main() {
+        if (u_isShadow > 0.5) {
+            gl_FragColor = vec4(0.0, 0.0, 0.0, u_shadowAlpha);
+            return;
+        }
+
         if (u_isOutline > 0.5) {
             gl_FragColor = vec4(1.0, 0.5, 0.0, 0.65);
             return;
@@ -69,7 +77,7 @@ const wormFragmentShaderSource = `
             //specular
             vec3 reflectDir = reflect(-lightDir, normal);
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0); //reflected ray (higher the ray, lower the reflection) (avoid negative)
-            vec3 specular = specularStrength * spec * vec3(1.0, 1.0, 1.0) * u_lightIntensities[i]; //white reflection (1,1,1) if aligned to camera
+            vec3 specular = specularStrength * spec * vec3(1.0, 1.0, 1.0) * u_lightIntensities[i] * u_advanced; //white reflection (1,1,1) if aligned to camera
 
             ambient += diffuse + specular;
         }
@@ -98,6 +106,18 @@ const OMEGA_TURN_SPEED = 3.0;   // randians turn
 const OMEGA_DURATION   = 0.8;   // turn duration
 const DIRECTION_DEADBAND = 0.15;
 const OVERRIDE_TURN_RATE = 3.5;
+const SHADOW_HEIGHT = 0.1;
+const WAVE_AMPLITUDE_MULTIPLIER = 2.0;
+const WAVE_FREQUENCY_MULTIPLIER = 3.0;
+
+function buildShadowMatrix(lx, ly, lz) {
+    return new Float32Array([
+        ly,   0,    0,    0, // multiply for V.x
+        -lx,   0,  -lz,  -1, // multiply for V.y
+        0,   0,   ly,    0, // multuply for v.z
+        0,   0,    0,   ly // multiply for 1
+    ]);
+}
 
 function initWorm(gl, objData) {
     const program = createShaderProgram(gl, wormVertexShaderSource, wormFragmentShaderSource);
@@ -154,6 +174,9 @@ function initWorm(gl, objData) {
             color: gl.getAttribLocation(program, 'a_color'),
             normal: gl.getAttribLocation(program, 'a_normal'),
             isOutline: gl.getUniformLocation(program, 'u_isOutline'),
+            isShadow: gl.getUniformLocation(program, 'u_isShadow'),
+            shadowAlpha: gl.getUniformLocation(program, 'u_shadowAlpha'),
+            advanced: gl.getUniformLocation(program, 'u_advanced'),
         }
     }
 }
@@ -209,7 +232,7 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     wormInstance.connectome.step(deltaTime);
 
     const { amplitude, freqTime } = wormInstance.connectome.getWaveParams();
-    wormInstance.freqTimeSmooth += (freqTime - wormInstance.freqTimeSmooth) * 3.0 * deltaTime;
+    wormInstance.freqTimeSmooth += (freqTime * WAVE_FREQUENCY_MULTIPLIER - wormInstance.freqTimeSmooth) * 3.0 * deltaTime;
 
     const c = wormInstance.connectome;
     const forwardDrive  = (c.getNeuronActivity('AVBL') + c.getNeuronActivity('AVBR') +
@@ -377,7 +400,6 @@ function checkWormCollisions(worms) {
     }
 }
 
-
 /**
  * 
  * @param {WebGLRenderingContext} gl 
@@ -414,7 +436,52 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
             m4.yRotation(wormInstance.heading),
             m4.scaling(WORM_SCALE, WORM_SCALE, WORM_SCALE) // scale model on the 3 axis
         )
-    ); 
+    );
+
+    
+    if (params.shadows) {
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.POLYGON_OFFSET_FILL);
+        gl.polygonOffset(-1, -1);
+        gl.uniform1f(worm.locations.isShadow, 1.0);
+
+        for (let i = 0; i < 4; i++) {
+            const intensity = Lights.getIntensitiesRaw()[i];
+            if (intensity < 0.01) continue;  // light turned off
+
+            const [lx, ly, lz] = Lights.getPositionsRaw()[i];
+            const shadowMatrix = buildShadowMatrix(lx, ly, lz);
+            const flatScale = m4.scaling(1, 0, 1);
+
+            // VP × ShadowMatrix × Model
+            const [px, py, pz] = wormInstance.position;
+
+            const shadowModelMatrix = m4.multiply(
+                m4.translation(px, SHADOW_HEIGHT, pz),
+                m4.multiply(
+                    m4.yRotation(wormInstance.heading),
+                    m4.scaling(WORM_SCALE, 0, WORM_SCALE)
+                )
+            );
+
+
+            const shadowMVP = m4.multiply(
+                viewProjectionMatrix,
+                m4.multiply(shadowMatrix, shadowModelMatrix)
+            );
+
+
+
+            gl.uniformMatrix4fv(worm.locations.matrix, false, shadowMVP);
+            gl.uniform1f(worm.locations.shadowAlpha, 0.3 * intensity);
+            gl.drawArrays(gl.TRIANGLES, 0, worm.vertexCount);
+        }
+
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+        gl.disable(gl.BLEND);
+        gl.uniform1f(worm.locations.isShadow, 0.0);
+    }
     //MVP MATRIX BUILDING
     const wormMvpMatrix = m4.multiply(viewProjectionMatrix, wormModelMatrix);
   
@@ -424,7 +491,7 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
     gl.uniform3fv(worm.locations.lightPositions, Lights.getPositionsFlat());
     gl.uniform1fv(worm.locations.lightIntensities, Lights.getIntensities());
     gl.uniform3fv(worm.locations.viewPosition,  eye);
-    gl.uniform1f(worm.locations.amplitude, amplitude * 0.8);
+    gl.uniform1f(worm.locations.amplitude, amplitude * WAVE_AMPLITUDE_MULTIPLIER);
     gl.uniform1f(worm.locations.freqTime, wormInstance.freqTimeSmooth);
     gl.uniform1f(worm.locations.freqSpace, 6.28);
     gl.uniform1f(worm.locations.time, time);
@@ -432,6 +499,7 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
     gl.uniform1f(worm.locations.bodyMax, worm.bodyMax);
 
     gl.uniform1f(worm.locations.isOutline, highlighted ? 1.0 : 0.0);
+    gl.uniform1f(worm.locations.advanced, params.shadows ? 1.0 : 0.0);
 
     if (highlighted) gl.enable(gl.BLEND), gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.drawArrays(gl.TRIANGLES, 0, worm.vertexCount);

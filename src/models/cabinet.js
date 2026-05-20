@@ -32,6 +32,7 @@ const cabinetFragmentShaderSource = `
     uniform vec3 u_viewPosition;
     uniform sampler2D u_texture;
     uniform sampler2D u_metalness;
+    uniform float u_advanced;
 
     void main() {
         vec3 steelColor = texture2D(u_texture, v_texcoord).rgb;
@@ -63,15 +64,14 @@ const cabinetFragmentShaderSource = `
             float shininess = mix(64.0, 256.0, metalness);
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
             vec3 specularColor = mix(vec3(1.0), steelColor, metalness);
-            vec3 specular = specularStrength * spec * specularColor * u_lightIntensities[i] * attenuation;
+            vec3 specular = specularStrength * spec * specularColor * u_lightIntensities[i] * attenuation * u_advanced;
 
-        
             ambient += diffuse + specular;
         }
 
         // fresnel solo nelle zone metalliche
         float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 4.0);
-        ambient += fresnel * steelColor * metalness * 0.5;
+        ambient += fresnel * steelColor * metalness * 0.5 * u_advanced;
 
         gl_FragColor = vec4(ambient, 1.0);
     }
@@ -217,6 +217,7 @@ async function initCabinet(gl) {
             position: gl.getAttribLocation(program, 'a_position'),
             normal: gl.getAttribLocation(program, 'a_normal'),
             texcoord: gl.getAttribLocation(program, 'a_texcoord'),
+            advanced: gl.getUniformLocation(program, 'u_advanced'),
         }
     };
 }
@@ -253,6 +254,7 @@ function drawCabinet(gl, cabinet, { viewProjectionMatrix, eye }) {
     gl.uniform3fv(cabinet.locations.lightPositions, Lights.getPositionsFlat());
     gl.uniform1fv(cabinet.locations.lightIntensities, Lights.getIntensities());
     gl.uniform3fv(cabinet.locations.viewPosition,  eye);
+    gl.uniform1f(cabinet.locations.advanced, params.shadows ? 1.0 : 0.0);
 
     gl.drawArrays(gl.TRIANGLES, 0, cabinet.vertexCount);
 }

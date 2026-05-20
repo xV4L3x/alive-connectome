@@ -1,5 +1,5 @@
 let selectionGui = null;
-const params = { temp: 0.0 };
+const params = { temp: 0.0, shadows: true };
 const cameraState = { mode: 'Free Camera' };
 const MODE_LABELS = ['Free Camera', 'Third Person', 'First Person'];
 
@@ -46,7 +46,6 @@ document.getElementById('thumbstick-base').addEventListener('pointerdown', (e) =
     if (selectedWorm && selectedWorm.overrideActive) {
         selectedWorm.overrideDir = selectedWorm.overrideInput.z >= 0 ? 1 : -1;
     }
-
 });
 
 document.addEventListener('pointermove', (e) => {
@@ -168,6 +167,7 @@ function updateHUD() {
 function initHUD(worms, foods) {
     const gui = new dat.GUI();
     gui.add(params, 'temp',   0, 1).step(0.01).name('Temperature');
+    gui.add(params, 'shadows').name('Advanced Rendering');
 
     const lightsFolder = gui.addFolder('Lights');
     const lightIntensities = Lights.getIntensitiesRaw();

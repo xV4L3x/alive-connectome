@@ -31,6 +31,7 @@ const planeFragmentShaderSource = `
     uniform vec3 u_lightPositions[4];
     uniform float u_lightIntensities[4];
     uniform vec3 u_viewPosition;
+    uniform float u_advanced;
 
     void main() {
         vec3 color = texture2D(u_texture, v_texCoord).rgb;
@@ -54,7 +55,7 @@ const planeFragmentShaderSource = `
             //specular light
             vec3 reflectDir = reflect(-lightDir, normal);
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
-            vec3 specular = specularStrength * spec * vec3(1.0) * u_lightIntensities[i];
+            vec3 specular = specularStrength * spec * vec3(1.0) * u_lightIntensities[i] * u_advanced;
 
             ambient += diffuse + specular;
         }
@@ -139,6 +140,7 @@ async function initPlane(gl) {
             position: gl.getAttribLocation(program, 'a_position'),
             normal: gl.getAttribLocation(program, 'a_normal'),
             texCoord: gl.getAttribLocation(program, 'a_texCoord'),
+            advanced: gl.getUniformLocation(program, 'u_advanced'),
         },
     };
 }
@@ -170,6 +172,7 @@ function drawPlane(gl, plane, { viewProjectionMatrix, eye, lightPosition }) {
     gl.uniform3fv(plane.locations.lightPositions, Lights.getPositionsFlat());
     gl.uniform1fv(plane.locations.lightIntensities, Lights.getIntensities());
     gl.uniform3fv(plane.locations.viewPosition,  eye);
+    gl.uniform1f(plane.locations.advanced, params.shadows ? 1.0 : 0.0);
 
     gl.drawArrays(gl.TRIANGLES, 0, plane.vertexCount);
 }
