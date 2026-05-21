@@ -239,7 +239,7 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     }
 
     const localLight = Lights.computeAt(wormInstance.position);
-    wormInstance.connectome.updateStimuli({ light: localLight, temp: stimuli.temp, hunger: wormInstance.hunger });
+    wormInstance.connectome.updateStimuli({ light: localLight, hunger: wormInstance.hunger });
     wormInstance.connectome.step(deltaTime);
 
     const { amplitude, freqTime } = wormInstance.connectome.getWaveParams();

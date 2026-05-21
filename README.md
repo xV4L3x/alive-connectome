@@ -4,7 +4,7 @@ Exam project for the Computer Graphics course — Master's Degree in Computer Sc
 
 ## Overview
 
-A virtual ecosystem inhabited by specimens of the nematode *C. elegans*, whose locomotor behavior is entirely driven by a simulation of the worm's real synaptic connections, sourced from the [OpenWorm](https://openworm.org) project. Worms move autonomously based on their neural network activity, reacting to environmental stimuli such as light and temperature.
+A virtual ecosystem inhabited by specimens of the nematode *C. elegans*, whose locomotor behavior is entirely driven by a simulation of the worm's real synaptic connections, sourced from the [OpenWorm](https://openworm.org) project. Worms move autonomously based on their neural network activity, reacting to environmental stimuli such as light.
 
 ## Libraries
 
@@ -220,7 +220,6 @@ Un pannello `dat.GUI` espone gli slider in tempo reale. I valori vengono passati
 | Stimolo | Sorgente | Neuroni target |
 |---|---|---|
 | Luce | calcolata per-verme da `Lights.computeAt()` | AVAL, AVAR, AVDL, AVDR (backward — contributo lineare: `activation += light × 1.5`) |
-| Temperatura | slider globale [0, 1] | AFDL, AFDR |
 | Fame | stato interno per-verme `wormInstance.hunger` | AWAL, AWAR, ADFL, ADFR |
 
 La luce non è più uno slider globale: ogni verme riceve un valore di luce diverso in base alla propria posizione nella teca e alle intensità correnti dei 4 faretti (vedi sezione Sistema di Illuminazione Multi-Luce — `computeAt`).
@@ -470,18 +469,17 @@ con $k_h$ = `HUNGER_RATE = 0.02` s⁻¹. In assenza di cibo il verme raggiunge h
 
 **Iniezione nel connectome:**
 
-La fame interna di ogni verme viene fusa con gli stimoli ambientali globali (luce, temperatura) prima di essere passata al connectome:
+La fame interna di ogni verme viene fusa con gli stimoli ambientali (luce) prima di essere passata al connectome:
 
 ```javascript
 const localLight = Lights.computeAt(wormInstance.position);
 wormInstance.connectome.updateStimuli({
     light:  localLight,
-    temp:   stimuli.temp,
     hunger: wormInstance.hunger
 });
 ```
 
-I tre stimoli hanno sorgenti distinte: `light` è calcolata per-verme dalla posizione nella teca, `temp` è globale (slider del pannello, uguale per tutti), `hunger` è locale (stato interno indipendente per ogni verme). Questo significa che due vermi vicini ma sotto faretti diversi ricevono stimoli di luce diversi, producendo comportamenti diversificati nonostante lo stesso ambiente.
+I due stimoli hanno sorgenti distinte: `light` è calcolata per-verme dalla posizione nella teca, `hunger` è locale (stato interno indipendente per ogni verme). Questo significa che due vermi vicini ma sotto faretti diversi ricevono stimoli di luce diversi, producendo comportamenti diversificati nonostante lo stesso ambiente.
 
 **Soglia chemotassi e mangiare:**
 

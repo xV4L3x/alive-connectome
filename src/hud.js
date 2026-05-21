@@ -1,5 +1,5 @@
 let selectionGui = null;
-const params = { temp: 0.0, shadows: true };
+const params = { shadows: true };
 const cameraState = { mode: 'Free Camera' };
 const MODE_LABELS = ['Free Camera', 'Third Person', 'First Person'];
 
@@ -94,7 +94,6 @@ function rebuildSelectionGui() {
         'Forward Circuit': ['AVBL','AVBR','PVCL','PVCR'],
         'Backward Circuit': ['AVAL','AVAR','AVDL','AVDR','AVEL','AVER'],
         'Sensory — Light': ['ASEL','ASER','AWCL','AWCR'],
-        'Sensory — Temp': ['AFDL','AFDR'],
         'Sensory — Food': ['AWAL','AWAR','ADFL','ADFR'],
         'Touch — Head': ['ALML','ALMR','AVM'],
         'Touch — Tail': ['PLML','PLMR','PVM'],
@@ -166,7 +165,7 @@ function updateHUD() {
 
 function initHUD(worms, foods) {
     const gui = new dat.GUI();
-    gui.add(params, 'temp',   0, 1).step(0.01).name('Temperature');
+
     gui.add(params, 'shadows').name('Advanced Rendering');
 
     const lightsFolder = gui.addFolder('Lights');

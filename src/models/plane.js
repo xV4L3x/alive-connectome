@@ -40,10 +40,10 @@ const planeFragmentShaderSource = `
         vec3 viewDir = normalize(u_viewPosition - v_worldPos);
 
         //ambient light calculated one time
-        float ambientStrength = 0.4;
+        float ambientStrength = 0.05;
         vec3 ambient = ambientStrength * color;
 
-        float specularStrength = 0.1;
+        float specularStrength = 0.005;
 
         for (int i = 0; i < 4; i++) { 
             vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos);
@@ -54,7 +54,7 @@ const planeFragmentShaderSource = `
 
             //specular light
             vec3 reflectDir = reflect(-lightDir, normal);
-            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 8.0);
             vec3 specular = specularStrength * spec * vec3(1.0) * u_lightIntensities[i] * u_advanced;
 
             ambient += diffuse + specular;

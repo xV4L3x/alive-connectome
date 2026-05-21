@@ -14,7 +14,6 @@ async function main() {
     } 
     console.log('WebGL correctly initialized');
 
-
     const objFileResponse = await fetch('resources/models/worm/worm-cuticle.obj');
     const objFileContent = await objFileResponse.text();
     console.log("Obj File Loaded, length:", objFileContent.length);

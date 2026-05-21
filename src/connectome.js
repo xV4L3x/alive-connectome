@@ -58,14 +58,13 @@ const Connectome = ( () => {
             neurons[name] = { activation: 0, spiked: false }; //init all neurons to powered off
         }
 
-        let stimuli = { light: 0, temp: 0, hunger: 0 };
+        let stimuli = { light: 0, hunger: 0 };
 
         function step(deltaTime) {
             for (const name in neurons) neurons[name].spiked = false;
 
             const forwardNeurons = ['AVBL','AVBR','PVCL','PVCR'];
             const backwardNeurons = ['AVAL','AVAR','AVDL','AVDR'];
-            const tempNeurons = ['AFDL','AFDR'];
             const foodNeurons = ['AWAL','AWAR','ADFL','ADFR'];
 
             for (const n of forwardNeurons)  if (neurons[n]) neurons[n].activation = 0.5;
@@ -76,7 +75,6 @@ const Connectome = ( () => {
                     if (neurons[n]) neurons[n].activation += stimuli.light * 1.5;
             }
 
-            for (const n of tempNeurons) if (neurons[n]) neurons[n].activation = stimuli.temp;
             for (const n of foodNeurons) if (neurons[n]) neurons[n].activation = stimuli.hunger;
 
 
@@ -96,7 +94,7 @@ const Connectome = ( () => {
             }
 
             const TAU = 0.1;
-            const stimulusNeurons = new Set([...forwardNeurons, ...backwardNeurons, ...tempNeurons, ...foodNeurons]);
+            const stimulusNeurons = new Set([...forwardNeurons, ...backwardNeurons, ...foodNeurons]);
             for (const name in neurons) {
                 if (stimulusNeurons.has(name)) continue;
                 neurons[name].activation += (deltaTime / TAU) * (-neurons[name].activation + input[name]);
