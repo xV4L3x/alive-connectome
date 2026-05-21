@@ -86,24 +86,34 @@ const wormFragmentShaderSource = `
     }
 `;
 
-const MAX_SPEED = 2.0; //units per second
+const MAX_SPEED = 3.0; //units per second
 const FRICTION = 2.0; //how fast worm adapts to speed
 const TURN_SPEED = 0.5;
 const WORM_SCALE = 0.3;
-const WORM_RADIUS = 0.8; //hitbox
+
+//hitboxes for worm-worm e worm-wall
+const WORM_WORM_RADIUS = 0.5;
+const WORM_WALL_RADIUS = 0.8;
+
 const PIROUETTE_MIN = 3.0; // min second between rotation
 const PIROUETTE_MAX = 8.0; // max seconds between rotation
-const FOOD_TURN_STRENGTH = 3.5;
 const TOUCH_STRENGTH = 4.0;
 const TOUCH_DURATION = 1.5;
-const HUNGER_RATE = 0.02;
+const REVERSAL_DURATION = 1.2;
+const OMEGA_TURN_SPEED = 2.5;   // randians turn
+const OMEGA_DURATION   = 1.2;   // turn duration
+
+const HUNGER_RATE = 0.01; //how slow hunger grows
+const FOOD_TURN_STRENGTH = 3.5;
+
 const EAT_RADIUS   = 0.8;  // minimum distance to eat
 const EAT_RATE     = 0.10; // hunger decrease step per second
 const CONSUME_RATE = 0.2; // nutrients dropping ratio
 const HUNGER_FORWARD_STRENGTH = 3.0;
-const LIGHT_FLEE_STRENGTH = 1.2;
-const OMEGA_TURN_SPEED = 3.0;   // randians turn
-const OMEGA_DURATION   = 0.8;   // turn duration
+
+const LIGHT_FLEE_STRENGTH = 2;
+
+
 const DIRECTION_DEADBAND = 0.15;
 const OVERRIDE_TURN_RATE = 3.5;
 const SHADOW_HEIGHT = 0.1;
@@ -193,6 +203,7 @@ function createWormInstance(position = [0,0,0], heading = 0) {
         directionSmooth: 1,
         freqTimeSmooth: 0,
         omegaTimer: 0,
+        reversalTimer: 0,
         pirouetteTimer: Math.random() * PIROUETTE_MAX,  // random initial offset
         connectome: Connectome.createInstance(),
         alive: true,
@@ -259,11 +270,22 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     wormInstance.speed += (targetSpeed - wormInstance.speed) * FRICTION * deltaTime;
 
     // pirouette e heading (invariati)
-    wormInstance.pirouetteTimer -= deltaTime;
-    if (wormInstance.pirouetteTimer <= 0) {
-        wormInstance.targetHeading  = wormInstance.heading + (Math.random() - 0.5) * Math.PI;
-        wormInstance.pirouetteTimer = PIROUETTE_MIN + Math.random() * (PIROUETTE_MAX - PIROUETTE_MIN);
+    if (wormInstance.reversalTimer > 0) {
+        wormInstance.reversalTimer -= deltaTime;
+        if (wormInstance.reversalTimer <= 0) {
+            const sign = Math.random() < 0.5 ? 1 : -1;
+            const angle = Math.PI * 0.5 + Math.random() * Math.PI * 0.5;
+            wormInstance.targetHeading = wormInstance.heading + sign * angle;
+            wormInstance.omegaTimer = OMEGA_DURATION;
+        }
+    } else {
+        wormInstance.pirouetteTimer -= deltaTime;
+        if (wormInstance.pirouetteTimer <= 0) {
+            wormInstance.targetHeading  = wormInstance.heading + (Math.random() - 0.5) * Math.PI;
+            wormInstance.pirouetteTimer = PIROUETTE_MIN + Math.random() * (PIROUETTE_MAX - PIROUETTE_MIN);
+        }
     }
+
     let diff = wormInstance.targetHeading - wormInstance.heading;
     while (diff >  Math.PI) diff -= 2 * Math.PI;
     while (diff < -Math.PI) diff += 2 * Math.PI;
@@ -272,7 +294,7 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     wormInstance.heading += Math.sign(diff) * Math.min(Math.abs(diff), turnSpeed * deltaTime);
 
 
-    if (wormInstance.omegaTimer <= 0) {
+    if (wormInstance.omegaTimer <= 0 && wormInstance.reversalTimer <= 0) {
         if (wormInstance.hunger > 0.5 && foods.length > 0) {
             let nearestFood = null;
             let nearestDist = Infinity;
@@ -328,20 +350,20 @@ function checkWallCollision(wormInstance, direction) {
     let hit = false;
 
     //X checks
-    if (pos[0] < -TANK_WIDTH + WORM_RADIUS) {
-        pos[0] = -TANK_WIDTH + WORM_RADIUS;
+    if (pos[0] < -TANK_WIDTH + WORM_WALL_RADIUS) {
+        pos[0] = -TANK_WIDTH + WORM_WALL_RADIUS;
         hit = true;
-    } else if (pos[0] > TANK_WIDTH - WORM_RADIUS) {
-        pos[0] = TANK_WIDTH - WORM_RADIUS;
+    } else if (pos[0] > TANK_WIDTH - WORM_WALL_RADIUS) {
+        pos[0] = TANK_WIDTH - WORM_WALL_RADIUS;
         hit = true;
     }
 
     //Z checks
-    if (pos[2] < -TANK_DEPTH + WORM_RADIUS) {
-        pos[2] = -TANK_DEPTH + WORM_RADIUS;
+    if (pos[2] < -TANK_DEPTH + WORM_WALL_RADIUS) {
+        pos[2] = -TANK_DEPTH + WORM_WALL_RADIUS;
         hit = true;
-    } else if (pos[2] > TANK_DEPTH - WORM_RADIUS) {
-        pos[2] = TANK_DEPTH - WORM_RADIUS;
+    } else if (pos[2] > TANK_DEPTH - WORM_WALL_RADIUS) {
+        pos[2] = TANK_DEPTH - WORM_WALL_RADIUS;
         hit = true;
     }
 
@@ -352,12 +374,12 @@ function checkWallCollision(wormInstance, direction) {
         if (direction > 0) {
             wormInstance.directionSmooth = -1;
             wormInstance.speed = -MAX_SPEED;
-            const sign = Math.random() < 0.5 ? 1 : -1;
-            wormInstance.targetHeading = wormInstance.heading + sign * (Math.PI * 0.5 + Math.random() * Math.PI * 0.5);
-            wormInstance.omegaTimer = OMEGA_DURATION;
+            wormInstance.targetHeading = wormInstance.heading; // va dritto indietro
+            wormInstance.reversalTimer = REVERSAL_DURATION;    // omega rimandato
         } else {
             wormInstance.speed = MAX_SPEED;
         }
+
 
     }
 
@@ -372,7 +394,7 @@ function checkWormCollisions(worms) {
             const dx = a.position[0] - b.position[0];
             const dz = a.position[2] - b.position[2];
             const d = Math.sqrt(dx*dx + dz*dz);
-            const minD = WORM_RADIUS * 2;
+            const minD = WORM_WORM_RADIUS * 2;
 
             if (d >= minD || d === 0) continue;
 
@@ -389,13 +411,29 @@ function checkWormCollisions(worms) {
             b.position[2] -= sdz * overlap * 0.5;
 
 
-            //touch head or tail events based on direction
+            // touch head or tail events based on direction
             const dirA = a.speed >= 0 ? 1 : -1;
             const dirB = b.speed >= 0 ? 1 : -1;
+
             a.touchTimer     = TOUCH_DURATION;
             a.touchDirection = dirA > 0 ? -1 : 1;
             b.touchTimer     = TOUCH_DURATION;
             b.touchDirection = dirB > 0 ? -1 : 1;
+
+            // head collision → reversal + omega (come per il muro)
+            if (dirA > 0 && a.reversalTimer <= 0) {
+                a.directionSmooth = -1;
+                a.speed           = -MAX_SPEED;
+                a.targetHeading   = a.heading;
+                a.reversalTimer   = REVERSAL_DURATION;
+            }
+            if (dirB > 0 && b.reversalTimer <= 0) {
+                b.directionSmooth = -1;
+                b.speed           = -MAX_SPEED;
+                b.targetHeading   = b.heading;
+                b.reversalTimer   = REVERSAL_DURATION;
+            }
+
         }
     }
 }
@@ -438,6 +476,13 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
         )
     );
 
+    gl.uniform1f(worm.locations.amplitude, amplitude * WAVE_AMPLITUDE_MULTIPLIER);
+    gl.uniform1f(worm.locations.freqTime, wormInstance.freqTimeSmooth);
+    gl.uniform1f(worm.locations.freqSpace, 6.28);
+    gl.uniform1f(worm.locations.time, time);
+    gl.uniform1f(worm.locations.bodyMin, worm.bodyMin);
+    gl.uniform1f(worm.locations.bodyMax, worm.bodyMax);
+
     
     if (params.shadows) {
         gl.enable(gl.BLEND);
@@ -474,7 +519,7 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
 
 
             gl.uniformMatrix4fv(worm.locations.matrix, false, shadowMVP);
-            gl.uniform1f(worm.locations.shadowAlpha, 0.3 * intensity);
+            gl.uniform1f(worm.locations.shadowAlpha, 0.15 * intensity);
             gl.drawArrays(gl.TRIANGLES, 0, worm.vertexCount);
         }
 
@@ -491,12 +536,7 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
     gl.uniform3fv(worm.locations.lightPositions, Lights.getPositionsFlat());
     gl.uniform1fv(worm.locations.lightIntensities, Lights.getIntensities());
     gl.uniform3fv(worm.locations.viewPosition,  eye);
-    gl.uniform1f(worm.locations.amplitude, amplitude * WAVE_AMPLITUDE_MULTIPLIER);
-    gl.uniform1f(worm.locations.freqTime, wormInstance.freqTimeSmooth);
-    gl.uniform1f(worm.locations.freqSpace, 6.28);
-    gl.uniform1f(worm.locations.time, time);
-    gl.uniform1f(worm.locations.bodyMin, worm.bodyMin);
-    gl.uniform1f(worm.locations.bodyMax, worm.bodyMax);
+    
 
     gl.uniform1f(worm.locations.isOutline, highlighted ? 1.0 : 0.0);
     gl.uniform1f(worm.locations.advanced, params.shadows ? 1.0 : 0.0);

@@ -1,0 +1,655 @@
+{
+  "table_of_contents": [
+    {
+      "title": "Light-sensitive neurons and channels mediate\nphototaxis in C. elegans",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          42.859798431396484,
+          148.0169677734375
+        ],
+        [
+          471.1708679199219,
+          148.0169677734375
+        ],
+        [
+          471.1708679199219,
+          193.86029052734375
+        ],
+        [
+          42.859798431396484,
+          193.86029052734375
+        ]
+      ]
+    },
+    {
+      "title": "RESULTS",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          300.7705078125,
+          442.34912109375
+        ],
+        [
+          340.5288391113281,
+          442.34912109375
+        ],
+        [
+          340.5288391113281,
+          454.9059753417969
+        ],
+        [
+          300.7705078125,
+          454.9059753417969
+        ]
+      ]
+    },
+    {
+      "title": "Light stimuli evoke negative phototactic responses",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          301.060546875,
+          454.58349609375
+        ],
+        [
+          495.304931640625,
+          454.58349609375
+        ],
+        [
+          495.304931640625,
+          465.9039306640625
+        ],
+        [
+          301.060546875,
+          465.9039306640625
+        ]
+      ]
+    },
+    {
+      "title": "Worms respond to light in a dose-dependent manner",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          42.0,
+          315.0
+        ],
+        [
+          243.75,
+          315.0
+        ],
+        [
+          243.75,
+          324.0
+        ],
+        [
+          42.0,
+          324.0
+        ]
+      ]
+    },
+    {
+      "title": "Phototaxis is essential for survival",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          301.5,
+          358.5
+        ],
+        [
+          433.5,
+          358.5
+        ],
+        [
+          433.5,
+          366.75
+        ],
+        [
+          301.5,
+          366.75
+        ]
+      ]
+    },
+    {
+      "title": "Identification of candidate photoreceptor cells",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          301.640625,
+          511.5
+        ],
+        [
+          479.25,
+          511.5
+        ],
+        [
+          479.25,
+          521.10791015625
+        ],
+        [
+          301.640625,
+          521.10791015625
+        ]
+      ]
+    },
+    {
+      "title": "CNG channels are important for phototaxis",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          42.0,
+          445.40771484375
+        ],
+        [
+          206.25,
+          445.40771484375
+        ],
+        [
+          206.25,
+          455.25
+        ],
+        [
+          42.0,
+          455.25
+        ]
+      ]
+    },
+    {
+      "title": "Light evokes an inward current carried by CNG channels",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          301.060546875,
+          303.0
+        ],
+        [
+          518.25,
+          303.0
+        ],
+        [
+          518.25,
+          312.0
+        ],
+        [
+          301.060546875,
+          312.0
+        ]
+      ]
+    },
+    {
+      "title": "cGMP is a second messenger for phototransduction in ASJ",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          42.859798431396484,
+          118.13818359375
+        ],
+        [
+          266.3176574707031,
+          118.13818359375
+        ],
+        [
+          266.3176574707031,
+          127.1656494140625
+        ],
+        [
+          42.859798431396484,
+          127.1656494140625
+        ]
+      ]
+    },
+    {
+      "title": "DISCUSSION",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          42.6357421875,
+          589.16162109375
+        ],
+        [
+          94.9435806274414,
+          589.16162109375
+        ],
+        [
+          94.9435806274414,
+          598.3970031738281
+        ],
+        [
+          42.6357421875,
+          598.3970031738281
+        ]
+      ]
+    },
+    {
+      "title": "gdu",
+      "heading_level": null,
+      "page_id": 5,
+      "polygon": [
+        [
+          12.4716796875,
+          476.3759765625
+        ],
+        [
+          30.4541015625,
+          476.3759765625
+        ],
+        [
+          30.4541015625,
+          496.2568359375
+        ],
+        [
+          12.4716796875,
+          496.2568359375
+        ]
+      ]
+    },
+    {
+      "title": "METHODS",
+      "heading_level": null,
+      "page_id": 5,
+      "polygon": [
+        [
+          40.8955078125,
+          63.0
+        ],
+        [
+          84.75,
+          63.0
+        ],
+        [
+          84.75,
+          70.5
+        ],
+        [
+          40.8955078125,
+          70.5
+        ]
+      ]
+    },
+    {
+      "title": "ACKNOWLEDGMENTS",
+      "heading_level": null,
+      "page_id": 5,
+      "polygon": [
+        [
+          302.25,
+          118.5
+        ],
+        [
+          379.5,
+          118.5
+        ],
+        [
+          379.5,
+          125.40234375
+        ],
+        [
+          302.25,
+          125.40234375
+        ]
+      ]
+    },
+    {
+      "title": "AUTHOR CONTRIBUTIONS",
+      "heading_level": null,
+      "page_id": 5,
+      "polygon": [
+        [
+          301.9306640625,
+          210.0
+        ],
+        [
+          396.0,
+          210.0
+        ],
+        [
+          396.0,
+          217.5
+        ],
+        [
+          301.9306640625,
+          217.5
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          230
+        ],
+        [
+          "Line",
+          76
+        ],
+        [
+          "Text",
+          9
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "PageHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "Footnote",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 1,
+      "text_extraction_method": "surya",
+      "block_counts": [
+        [
+          "Line",
+          136
+        ],
+        [
+          "Span",
+          67
+        ],
+        [
+          "Text",
+          6
+        ],
+        [
+          "Figure",
+          4
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "PageHeader",
+          2
+        ],
+        [
+          "Caption",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "FigureGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 2,
+      "text_extraction_method": "surya",
+      "block_counts": [
+        [
+          "Span",
+          199
+        ],
+        [
+          "Line",
+          117
+        ],
+        [
+          "Text",
+          6
+        ],
+        [
+          "Figure",
+          3
+        ],
+        [
+          "PageHeader",
+          2
+        ],
+        [
+          "Caption",
+          2
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "FigureGroup",
+          2
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 3,
+      "text_extraction_method": "surya",
+      "block_counts": [
+        [
+          "Line",
+          191
+        ],
+        [
+          "Span",
+          106
+        ],
+        [
+          "Text",
+          4
+        ],
+        [
+          "Figure",
+          3
+        ],
+        [
+          "PageHeader",
+          2
+        ],
+        [
+          "Caption",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "FigureGroup",
+          2
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 4,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          403
+        ],
+        [
+          "Line",
+          123
+        ],
+        [
+          "Text",
+          8
+        ],
+        [
+          "PageHeader",
+          2
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 5,
+      "text_extraction_method": "surya",
+      "block_counts": [
+        [
+          "Line",
+          202
+        ],
+        [
+          "Span",
+          186
+        ],
+        [
+          "ListItem",
+          23
+        ],
+        [
+          "Text",
+          9
+        ],
+        [
+          "SectionHeader",
+          4
+        ],
+        [
+          "PageHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "ListGroup",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 6,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          298
+        ],
+        [
+          "Line",
+          57
+        ],
+        [
+          "ListItem",
+          21
+        ],
+        [
+          "PageHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "ListGroup",
+          2
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/Light-sensitive-neurons-and-channels-mediate-phototaxis-in-C.elegans"
+}

@@ -1,0 +1,1129 @@
+{
+  "table_of_contents": [
+    {
+      "title": "Behavioral States",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          406.5,
+          132.0
+        ],
+        [
+          554.25,
+          132.0
+        ],
+        [
+          554.25,
+          146.0478515625
+        ],
+        [
+          406.5,
+          146.0478515625
+        ]
+      ]
+    },
+    {
+      "title": "Steven W. Flavell,* David M. Raizen,<sup>\u2020,1</sup> and Young-Jai You<sup>\u2021</sup>",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          302.677734375,
+          161.25
+        ],
+        [
+          554.712890625,
+          161.25
+        ],
+        [
+          554.712890625,
+          171.28125
+        ],
+        [
+          302.677734375,
+          171.28125
+        ]
+      ]
+    },
+    {
+      "title": "Locomotion States",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          47.25,
+          554.25
+        ],
+        [
+          136.5,
+          554.25
+        ],
+        [
+          136.5,
+          563.92822265625
+        ],
+        [
+          47.25,
+          563.92822265625
+        ]
+      ]
+    },
+    {
+      "title": "Roaming and dwelling states",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          307.5,
+          243.158203125
+        ],
+        [
+          432.0,
+          243.158203125
+        ],
+        [
+          432.0,
+          252.75
+        ],
+        [
+          307.5,
+          252.75
+        ]
+      ]
+    },
+    {
+      "title": "Local search and global search",
+      "heading_level": null,
+      "page_id": 3,
+      "polygon": [
+        [
+          305.033203125,
+          278.33203125
+        ],
+        [
+          438.0,
+          278.33203125
+        ],
+        [
+          438.0,
+          288.0
+        ],
+        [
+          305.033203125,
+          288.0
+        ]
+      ]
+    },
+    {
+      "title": "Mate searching in males",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          46.5205078125,
+          230.923828125
+        ],
+        [
+          151.4456787109375,
+          230.923828125
+        ],
+        [
+          151.4456787109375,
+          241.64642333984375
+        ],
+        [
+          46.5205078125,
+          241.64642333984375
+        ]
+      ]
+    },
+    {
+      "title": "Sleep as a Behavioral State",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          308.56640625,
+          351.4200134277344
+        ],
+        [
+          436.32427978515625,
+          351.4200134277344
+        ],
+        [
+          436.32427978515625,
+          361.38262939453125
+        ],
+        [
+          308.56640625,
+          361.38262939453125
+        ]
+      ]
+    },
+    {
+      "title": "Behavioral quiescence during developmentally timed sleep",
+      "heading_level": null,
+      "page_id": 5,
+      "polygon": [
+        [
+          47.6982421875,
+          433.17333984375
+        ],
+        [
+          293.9991455078125,
+          433.17333984375
+        ],
+        [
+          293.9991455078125,
+          443.8699645996094
+        ],
+        [
+          47.6982421875,
+          443.8699645996094
+        ]
+      ]
+    },
+    {
+      "title": "Behavioral quiescence during SIS",
+      "heading_level": null,
+      "page_id": 5,
+      "polygon": [
+        [
+          307.68310546875,
+          554.4690551757812
+        ],
+        [
+          447.3765563964844,
+          554.4690551757812
+        ],
+        [
+          447.3765563964844,
+          563.92822265625
+        ],
+        [
+          307.68310546875,
+          563.92822265625
+        ]
+      ]
+    },
+    {
+      "title": "",
+      "heading_level": null,
+      "page_id": 6,
+      "polygon": [
+        [
+          50.0537109375,
+          45.1142578125
+        ],
+        [
+          319.7548828125,
+          45.1142578125
+        ],
+        [
+          319.7548828125,
+          55.8193359375
+        ],
+        [
+          50.0537109375,
+          55.8193359375
+        ]
+      ]
+    },
+    {
+      "title": "Reduced responsiveness during sleep",
+      "heading_level": null,
+      "page_id": 7,
+      "polygon": [
+        [
+          47.109375,
+          422.94146728515625
+        ],
+        [
+          205.56089782714844,
+          422.94146728515625
+        ],
+        [
+          205.56089782714844,
+          432.40869140625
+        ],
+        [
+          47.109375,
+          432.40869140625
+        ]
+      ]
+    },
+    {
+      "title": "Homeostatic regulation of sleep",
+      "heading_level": null,
+      "page_id": 7,
+      "polygon": [
+        [
+          307.09423828125,
+          230.923828125
+        ],
+        [
+          444.01239013671875,
+          230.923828125
+        ],
+        [
+          444.01239013671875,
+          240.62591552734375
+        ],
+        [
+          307.09423828125,
+          240.62591552734375
+        ]
+      ]
+    },
+    {
+      "title": "Behavioral States Regulated by Metabolic Status",
+      "heading_level": null,
+      "page_id": 8,
+      "polygon": [
+        [
+          307.388671875,
+          518.81396484375
+        ],
+        [
+          537.319091796875,
+          518.81396484375
+        ],
+        [
+          537.319091796875,
+          528.7967071533203
+        ],
+        [
+          307.388671875,
+          528.7967071533203
+        ]
+      ]
+    },
+    {
+      "title": "Metabolism affects behavioral states",
+      "heading_level": null,
+      "page_id": 9,
+      "polygon": [
+        [
+          47.6982421875,
+          46.26123046875
+        ],
+        [
+          204.23748779296875,
+          46.26123046875
+        ],
+        [
+          204.23748779296875,
+          55.9771728515625
+        ],
+        [
+          47.6982421875,
+          55.9771728515625
+        ]
+      ]
+    },
+    {
+      "title": "Neural circuits integrating metabolic state with\nsensory responses",
+      "heading_level": null,
+      "page_id": 10,
+      "polygon": [
+        [
+          307.388671875,
+          448.85015869140625
+        ],
+        [
+          507.96636962890625,
+          448.85015869140625
+        ],
+        [
+          507.96636962890625,
+          468.7580261230469
+        ],
+        [
+          307.388671875,
+          468.7580261230469
+        ]
+      ]
+    },
+    {
+      "title": "Methodological Considerations",
+      "heading_level": null,
+      "page_id": 11,
+      "polygon": [
+        [
+          48.8759765625,
+          494.34521484375
+        ],
+        [
+          194.9150390625,
+          494.34521484375
+        ],
+        [
+          194.9150390625,
+          504.8724365234375
+        ],
+        [
+          48.8759765625,
+          504.8724365234375
+        ]
+      ]
+    },
+    {
+      "title": "Acknowledgments",
+      "heading_level": null,
+      "page_id": 12,
+      "polygon": [
+        [
+          48.287109375,
+          88.31689453125
+        ],
+        [
+          135.75494384765625,
+          88.31689453125
+        ],
+        [
+          135.75494384765625,
+          99.40472412109375
+        ],
+        [
+          48.287109375,
+          99.40472412109375
+        ]
+      ]
+    },
+    {
+      "title": "Literature Cited",
+      "heading_level": null,
+      "page_id": 12,
+      "polygon": [
+        [
+          48.58154296875,
+          226.92236328125
+        ],
+        [
+          122.18994140625,
+          226.92236328125
+        ],
+        [
+          122.18994140625,
+          236.88494873046875
+        ],
+        [
+          48.58154296875,
+          236.88494873046875
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "surya",
+      "block_counts": [
+        [
+          "Line",
+          43
+        ],
+        [
+          "Span",
+          23
+        ],
+        [
+          "TableCell",
+          14
+        ],
+        [
+          "Text",
+          10
+        ],
+        [
+          "PageHeader",
+          2
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "TableOfContents",
+          1
+        ],
+        [
+          "Footnote",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 1,
+      "text_extraction_method": "surya",
+      "block_counts": [
+        [
+          "Line",
+          116
+        ],
+        [
+          "Span",
+          92
+        ],
+        [
+          "Text",
+          7
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 2,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          185
+        ],
+        [
+          "Line",
+          54
+        ],
+        [
+          "Text",
+          4
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "Figure",
+          1
+        ],
+        [
+          "Caption",
+          1
+        ],
+        [
+          "FigureGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 3,
+      "text_extraction_method": "surya",
+      "block_counts": [
+        [
+          "Line",
+          116
+        ],
+        [
+          "Span",
+          101
+        ],
+        [
+          "Text",
+          6
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 4,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          355
+        ],
+        [
+          "Line",
+          110
+        ],
+        [
+          "Text",
+          7
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 5,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          439
+        ],
+        [
+          "Line",
+          111
+        ],
+        [
+          "Text",
+          11
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 6,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          373
+        ],
+        [
+          "Line",
+          85
+        ],
+        [
+          "Text",
+          6
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "Caption",
+          1
+        ],
+        [
+          "PictureGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 7,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          417
+        ],
+        [
+          "Line",
+          111
+        ],
+        [
+          "Text",
+          9
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 8,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          330
+        ],
+        [
+          "Line",
+          82
+        ],
+        [
+          "Text",
+          5
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "Figure",
+          1
+        ],
+        [
+          "Caption",
+          1
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "FigureGroup",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 9,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          401
+        ],
+        [
+          "Line",
+          111
+        ],
+        [
+          "Text",
+          11
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 10,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          419
+        ],
+        [
+          "Line",
+          112
+        ],
+        [
+          "Text",
+          9
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 11,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          407
+        ],
+        [
+          "Line",
+          111
+        ],
+        [
+          "Text",
+          10
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 12,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          394
+        ],
+        [
+          "Line",
+          127
+        ],
+        [
+          "ListItem",
+          31
+        ],
+        [
+          "Text",
+          2
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "ListGroup",
+          2
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 13,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          393
+        ],
+        [
+          "Line",
+          133
+        ],
+        [
+          "ListItem",
+          34
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "ListGroup",
+          2
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 14,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          420
+        ],
+        [
+          "Line",
+          135
+        ],
+        [
+          "ListItem",
+          32
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "ListGroup",
+          2
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 15,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          386
+        ],
+        [
+          "Line",
+          135
+        ],
+        [
+          "ListItem",
+          34
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "ListGroup",
+          2
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 16,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          391
+        ],
+        [
+          "Line",
+          133
+        ],
+        [
+          "ListItem",
+          33
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "ListGroup",
+          2
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 17,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          38
+        ],
+        [
+          "Line",
+          14
+        ],
+        [
+          "ListItem",
+          4
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "Text",
+          1
+        ],
+        [
+          "ListGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/Behavioral-States"
+}
