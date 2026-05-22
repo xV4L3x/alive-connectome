@@ -36,7 +36,11 @@ $$z = r \cdot \cos\theta \cdot \cos\phi$$
 
 La posizione dell'occhio è poi spostata del vettore target (per orbitare attorno al target, non all'origine).
 
-### Controlli Mouse
+### Controlli Mouse e Touch
+
+I controlli della camera orbitale sono gestiti da `setupCameraControls` e funzionano sia con mouse che con touch screen.
+
+**Mouse:**
 
 ```javascript
 // src/core/camera.js — setupCameraControls
@@ -55,6 +59,53 @@ canvas.addEventListener('wheel', (e) => {
     camera.distance += e.deltaY * 0.01;
     camera.distance  = Math.max(0.5, Math.min(50, camera.distance));
 }, { passive: false });
+```
+
+**Touch (mobile):**
+
+Stessa logica del mouse, mappata sugli eventi touch:
+
+| Gesto | Azione |
+|---|---|
+| 1 dito — drag | Orbita (azimuth + elevation) |
+| 2 dita — pinch in/out | Zoom (distance) |
+
+```javascript
+// src/core/camera.js — setupCameraControls (touch)
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+        isDragging = true;
+        lastMouseX = e.touches[0].clientX;
+        lastMouseY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+        isDragging = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (!getEnabled()) return;
+
+    if (e.touches.length === 1 && isDragging) {
+        // singolo dito → orbita, stessa logica del mouse
+        camera.azimuth   -= dx * draggingSensitivity;
+        camera.elevation += dy * draggingSensitivity;
+        camera.elevation  = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, camera.elevation));
+    } else if (e.touches.length === 2) {
+        // pinch → zoom
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        camera.distance -= (dist - lastPinchDist) * 0.05;
+        camera.distance  = Math.max(0.5, Math.min(50, camera.distance));
+        lastPinchDist = dist;
+    }
+}, { passive: false });
+```
+
+`{ passive: false }` è necessario per poter chiamare `e.preventDefault()` e bloccare lo scroll nativo del browser sul canvas. I listener touch riusano le stesse variabili di stato (`isDragging`, `lastMouseX/Y`, `draggingSensitivity`) già definite nella closure per il mouse.
 ```
 
 L'elevation è vincolata a $(-\pi/2 + 0.01,\ \pi/2 - 0.01)$ per evitare le **singolarità ai poli**: a $\theta = \pm\pi/2$ la camera guarda esattamente verso l'alto o il basso, e il vettore "up" $(0,1,0)$ diventa parallelo alla direzione di vista. In questo caso `lookAt` non riesce a determinare l'orientamento orizzontale della camera.

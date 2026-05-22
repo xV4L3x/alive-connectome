@@ -97,6 +97,59 @@ function setupCameraControls(canvas, camera, getEnabled) {
 
     canvas.addEventListener('mouseup',    () => { isDragging = false; });
     canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+    let lastPinchDist = null;
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            isDragging = true;
+            lastMouseX = e.touches[0].clientX;
+            lastMouseY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+            isDragging = false;
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+        }
+    }, { passive: false });
+    
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (!getEnabled()) return;
+
+        if (e.touches.length === 1 && isDragging) {
+            const dx = e.touches[0].clientX - lastMouseX;
+            const dy = e.touches[0].clientY - lastMouseY;
+            camera.azimuth   -= dx * draggingSensitivity;
+            camera.elevation += dy * draggingSensitivity;
+            camera.elevation  = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, camera.elevation));
+            lastMouseX = e.touches[0].clientX;
+            lastMouseY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (lastPinchDist !== null) {
+                camera.distance -= (dist - lastPinchDist) * 0.05;
+                camera.distance  = Math.max(0.5, Math.min(50, camera.distance));
+            }
+            lastPinchDist = dist;
+        }
+    }, { passive: false });
+    
+    canvas.addEventListener('touchend', (e) => {
+        if (e.touches.length === 0) {
+            isDragging = false;
+            lastPinchDist = null;
+        } else if (e.touches.length === 1) {
+            // passaggio da pinch a singolo dito
+            lastPinchDist = null;
+            isDragging = true;
+            lastMouseX = e.touches[0].clientX;
+            lastMouseY = e.touches[0].clientY;
+        }
+    });
+
 }
 
 function resolveCamera(camera, cameraMode, selectedWorm) {
