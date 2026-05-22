@@ -42,3 +42,12 @@ body {
     pointer-events: none;
 }
 
+@media (pointer: coarse) {
+    #thumbstick-base {
+        left: auto;
+        right: 24px;
+        transform: none;
+    }
+}
+
+

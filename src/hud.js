@@ -3,6 +3,43 @@ const params = { shadows: true };
 const cameraState = { mode: 'Free Camera' };
 const MODE_LABELS = ['Free Camera', 'Third Person', 'First Person'];
 
+
+const keysDown = new Set();
+
+function applyKeyboardOverrideInput() {
+    if (!selectedWorm || !selectedWorm.overrideActive) return;
+
+    let x = 0, z = 0;
+    if (keysDown.has('KeyW') || keysDown.has('ArrowUp')) z = 1;
+    if (keysDown.has('KeyS') || keysDown.has('ArrowDown')) z = -1;
+    if (keysDown.has('KeyA') || keysDown.has('ArrowLeft')) x = -1;
+    if (keysDown.has('KeyD') || keysDown.has('ArrowRight')) x = 1;
+
+    selectedWorm.overrideInput.x = x;
+    selectedWorm.overrideInput.z = z;
+    if (z !== 0) selectedWorm.overrideDir = z > 0 ? 1 : -1;
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return; // do not interfer with dat.gui
+    keysDown.add(e.code);
+    applyKeyboardOverrideInput();
+});
+
+document.addEventListener('keyup', (e) => {
+    keysDown.delete(e.code);
+    if (selectedWorm && selectedWorm.overrideActive) {
+        applyKeyboardOverrideInput();
+        // if no more directional input, stop the worm
+        const anyDir = keysDown.has('KeyW') || keysDown.has('KeyS') || keysDown.has('ArrowUp') || keysDown.has('ArrowDown') || keysDown.has('KeyA') || keysDown.has('KeyD') || keysDown.has('ArrowLeft') || keysDown.has('ArrowRight');
+        if (!anyDir) {
+            selectedWorm.overrideInput.x = 0;
+            selectedWorm.overrideInput.z = 0;
+        }
+    }
+});
+
+
 function updateThumbstickVisibility() {
     const base = document.getElementById('thumbstick-base');
     const active = selectedWorm && selectedWorm.overrideActive;
@@ -74,6 +111,7 @@ function rebuildSelectionGui() {
         if (selectionGui) { selectionGui.destroy(); selectionGui = null; }
         cameraMode = 0;
         updateCameraModeDisplay();
+        updateThumbstickVisibility();
         return;
     }
     if (selectionGui) { selectionGui.destroy(); selectionGui = null; }
@@ -114,7 +152,6 @@ function rebuildSelectionGui() {
     motionFolder.add(info, 'light', 0, 1).step(0.01).listen().name('Light');
 
     motionFolder.add(selectionGui._worm, 'hunger', 0, 1).step(0.01).listen().name('Hunger');
-    motionFolder.open();
 
     selectionGui.add({
         copy: () => {
@@ -145,6 +182,11 @@ function rebuildSelectionGui() {
             updateThumbstickVisibility();
         }
     }, 'toggleOverride').name('Motor Override');
+
+    if (window.matchMedia('(pointer: coarse)').matches) {
+        selectionGui.close();
+    }
+
 }
 
 function updateHUD() {
@@ -198,4 +240,10 @@ function initHUD(worms, foods) {
     gui.add(actions, 'spawnFood').name("Spawn Food");
 
     gui.add(cameraState, 'mode').name('Camera').listen();
+
+    const isMobile = window.matchMedia('(pointer: coarse)').matches;
+    if (isMobile) {
+        gui.close();
+    }
+
 }

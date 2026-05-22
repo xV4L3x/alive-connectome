@@ -217,6 +217,23 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     wormInstance.hunger = Math.min(1, wormInstance.hunger + HUNGER_RATE * deltaTime);
     if (wormInstance.hunger >= 1.0) wormInstance.alive = false;
 
+    // Eat food if nearby, regardless of hunger or override mode
+    if (foods.length > 0) {
+        let nearestFood = null;
+        let nearestDist = Infinity;
+        for (const f of foods) {
+            const dx = f.position[0] - wormInstance.position[0];
+            const dz = f.position[2] - wormInstance.position[2];
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist < nearestDist) { nearestDist = dist; nearestFood = f; }
+        }
+        if (nearestDist < EAT_RADIUS) {
+            wormInstance.hunger = Math.max(0, wormInstance.hunger - EAT_RATE * deltaTime);
+            nearestFood.nutrients = Math.max(0, nearestFood.nutrients - CONSUME_RATE * deltaTime);
+        }
+    }
+
+
     //override controls
     if (wormInstance.overrideActive) {
         const ix = wormInstance.overrideInput.x;
@@ -269,7 +286,7 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     const targetSpeed = amplitude * MAX_SPEED * direction;
     wormInstance.speed += (targetSpeed - wormInstance.speed) * FRICTION * deltaTime;
 
-    // pirouette e heading (invariati)
+    // pirouette and heading 
     if (wormInstance.reversalTimer > 0) {
         wormInstance.reversalTimer -= deltaTime;
         if (wormInstance.reversalTimer <= 0) {
@@ -306,11 +323,6 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
                 if (dist < nearestDist) { nearestDist = dist; nearestFood = f; }
             }
 
-            if (nearestDist < EAT_RADIUS) {
-                wormInstance.hunger = Math.max(0, wormInstance.hunger - EAT_RATE * deltaTime);
-                nearestFood.nutrients = Math.max(0, nearestFood.nutrients - CONSUME_RATE * deltaTime);
-            } 
-
             const dx = nearestFood.position[0] - wormInstance.position[0];
             const dz = nearestFood.position[2] - wormInstance.position[2];
             const angleToFood = Math.atan2(dx, dz);
@@ -320,7 +332,6 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
             while (foodDiff < -Math.PI) foodDiff += 2 * Math.PI;
 
             const bias = (wormInstance.hunger - 0.5) * 2; // 0 a hunger=0.5, 1 a hunger=1.0
-
             wormInstance.heading += foodDiff * bias * FOOD_TURN_STRENGTH * deltaTime;
         } 
 

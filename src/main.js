@@ -72,6 +72,10 @@ async function main() {
     let lastTimestamp = null;
     let hoveredWorm = null;
 
+    const FOOD_SPAWN_RATE = 0.15; // food spawn probability
+    const MAX_FOODS = 8; // avoid too much food
+
+
     function render(timestamp) {
 
         if (lastTimestamp === null) {
@@ -123,6 +127,17 @@ async function main() {
             updateWorm(wormInstance, deltaTime, params, foods);
         }
         checkWormCollisions(worms);
+        if (foods.length < MAX_FOODS && Math.random() < FOOD_SPAWN_RATE * deltaTime) {
+            const x = (Math.random() * 2 - 1) * (TANK_WIDTH - 1);
+            const z = (Math.random() * 2 - 1) * (TANK_DEPTH - 1);
+            const nutrients = 0.3 + Math.random() * 0.7;
+            console.log("Randomly spawned food");
+            foods.push(createFoodInstance([x, 0.01, z], nutrients));
+        }
+
+
+
+
         for (let i = foods.length - 1; i >= 0; i--) {
             if (foods[i].nutrients <= 0) foods.splice(i, 1); //delete food if reachs 0
         }
