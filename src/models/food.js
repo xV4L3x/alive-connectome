@@ -71,26 +71,16 @@ function generateDiscPositions() {
  * @param {WebGLRenderingContext} gl 
  */
 function initFood(gl) {
-    const program = createShaderProgram(gl, foodVertexShaderSource, foodFragmentShaderSource);
+    const programInfo = webglUtils.createProgramInfo(gl, [foodVertexShaderSource, foodFragmentShaderSource]);
 
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, generateDiscPositions(), gl.STATIC_DRAW);
 
     return {
-        program,
+        programInfo,
         positionBuffer,
         vertexCount: FOOD_SIDES * 3,
-        locations: {
-            matrix: gl.getUniformLocation(program, 'u_matrix'),
-            modelMatrix: gl.getUniformLocation(program, 'u_modelMatrix'),
-            color: gl.getUniformLocation(program, 'u_color'),
-            alpha: gl.getUniformLocation(program, 'u_alpha'),
-            lightPositions: gl.getUniformLocation(program, 'u_lightPositions'),
-            lightIntensities: gl.getUniformLocation(program, 'u_lightIntensities'),
-            viewPosition: gl.getUniformLocation(program, 'u_viewPosition'),
-            position: gl.getAttribLocation(program, 'a_position')
-        }
     }
 }
 
@@ -108,11 +98,11 @@ function createFoodInstance(position = [0, 0, 0], nutrients = 1.0) {
  * @param {*} foodInstance 
  */
 function drawFood(gl, food, foodInstance, { viewProjectionMatrix, eye }) {
-    gl.useProgram(food.program);
+    gl.useProgram(food.programInfo.program);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, food.positionBuffer);
-    gl.enableVertexAttribArray(food.locations.position);
-    gl.vertexAttribPointer(food.locations.position, 3, gl.FLOAT, false, 0, 0);
+    webglUtils.setAttributes(food.programInfo.attribSetters, {
+        a_position: { buffer: food.positionBuffer, numComponents: 3 },
+    });
 
     const [px, py, pz] = foodInstance.position;
     const modelMatrix = m4.multiply(
@@ -122,13 +112,15 @@ function drawFood(gl, food, foodInstance, { viewProjectionMatrix, eye }) {
 
     const mvpMatrix = m4.multiply(viewProjectionMatrix, modelMatrix);
 
-    gl.uniformMatrix4fv(food.locations.matrix, false, mvpMatrix);
-    gl.uniformMatrix4fv(food.locations.modelMatrix, false, modelMatrix);
-    gl.uniform3fv(food.locations.color, [0.8, 0.3, 0.2]);
-    gl.uniform1f(food.locations.alpha, 0.65);
-    gl.uniform3fv(food.locations.lightPositions, Lights.getPositionsFlat());
-    gl.uniform1fv(food.locations.lightIntensities, Lights.getIntensities());
-    gl.uniform3fv(food.locations.viewPosition, eye);
+    webglUtils.setUniforms(food.programInfo, {
+        u_matrix:           mvpMatrix,
+        u_modelMatrix:      modelMatrix,
+        u_color:            [0.8, 0.3, 0.2],
+        u_alpha:            0.65,
+        u_lightPositions:   Lights.getPositionsFlat(),
+        u_lightIntensities: Lights.getIntensities(),
+        u_viewPosition:     eye,
+    });
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);

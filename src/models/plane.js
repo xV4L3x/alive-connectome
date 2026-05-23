@@ -87,7 +87,7 @@ const planeUVs = new Float32Array([
  * @param {WebGLRenderingContext} gl 
  */
 async function initPlane(gl) {
-    const program = createShaderProgram(gl, planeVertexShaderSource, planeFragmentShaderSource);
+    const programInfo = webglUtils.createProgramInfo(gl, [planeVertexShaderSource, planeFragmentShaderSource]);
 
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -124,55 +124,36 @@ async function initPlane(gl) {
 
 
     return {
-        program,
+        programInfo,
         positionBuffer,
         normalBuffer,
         uvBuffer,
         texture,
         vertexCount: 6,
-        locations: {
-            matrix: gl.getUniformLocation(program, 'u_matrix'),
-            modelMatrix: gl.getUniformLocation(program, 'u_modelMatrix'),
-            lightPositions: gl.getUniformLocation(program, 'u_lightPositions'),
-            lightIntensities: gl.getUniformLocation(program, 'u_lightIntensities'),
-            viewPosition: gl.getUniformLocation(program, 'u_viewPosition'),
-            textureLoc: gl.getUniformLocation(program, 'u_texture'),
-            position: gl.getAttribLocation(program, 'a_position'),
-            normal: gl.getAttribLocation(program, 'a_normal'),
-            texCoord: gl.getAttribLocation(program, 'a_texCoord'),
-            advanced: gl.getUniformLocation(program, 'u_advanced'),
-        },
     };
 }
 
 function drawPlane(gl, plane, { viewProjectionMatrix, eye, lightPosition }) {
-    gl.useProgram(plane.program);
+    gl.useProgram(plane.programInfo.program);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, plane.positionBuffer);
-    gl.enableVertexAttribArray(plane.locations.position);
-    gl.vertexAttribPointer(plane.locations.position, 3, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, plane.normalBuffer);
-    gl.enableVertexAttribArray(plane.locations.normal);
-    gl.vertexAttribPointer(plane.locations.normal, 3, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, plane.uvBuffer);
-    gl.enableVertexAttribArray(plane.locations.texCoord);
-    gl.vertexAttribPointer(plane.locations.texCoord, 2, gl.FLOAT, false, 0, 0);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, plane.texture);
-    gl.uniform1i(plane.locations.textureLoc, 0);
+    webglUtils.setAttributes(plane.programInfo.attribSetters, {
+        a_position: { buffer: plane.positionBuffer, numComponents: 3 },
+        a_normal:   { buffer: plane.normalBuffer,   numComponents: 3 },
+        a_texCoord: { buffer: plane.uvBuffer,       numComponents: 2 },
+    });
 
     const planeModelMatrix = m4.identity();
     const planeMvpMatrix = viewProjectionMatrix;
 
-    gl.uniformMatrix4fv(plane.locations.matrix,      false, planeMvpMatrix);
-    gl.uniformMatrix4fv(plane.locations.modelMatrix, false, planeModelMatrix);
-    gl.uniform3fv(plane.locations.lightPositions, Lights.getPositionsFlat());
-    gl.uniform1fv(plane.locations.lightIntensities, Lights.getIntensities());
-    gl.uniform3fv(plane.locations.viewPosition,  eye);
-    gl.uniform1f(plane.locations.advanced, params.shadows ? 1.0 : 0.0);
+    webglUtils.setUniforms(plane.programInfo, {
+        u_matrix:           planeMvpMatrix,
+        u_modelMatrix:      planeModelMatrix,
+        u_texture:          plane.texture,
+        u_lightPositions:   Lights.getPositionsFlat(),
+        u_lightIntensities: Lights.getIntensities(),
+        u_viewPosition:     eye,
+        u_advanced:         params.shadows ? 1.0 : 0.0,
+    });
 
     gl.drawArrays(gl.TRIANGLES, 0, plane.vertexCount);
 }

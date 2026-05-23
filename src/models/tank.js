@@ -73,21 +73,16 @@ const tankPositions = new Float32Array(
  * @param {WebGLRenderingContext} gl 
  */
 function initTank(gl) {
-    const program = createShaderProgram(gl, tankVertexShaderSource, tankFragmentShaderSource);
+    const programInfo = webglUtils.createProgramInfo(gl, [tankVertexShaderSource, tankFragmentShaderSource]);
 
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, tankPositions, gl.STATIC_DRAW);
 
     return {
-        program,
+        programInfo,
         positionBuffer,
         vertexCount: tankPositions.length / 3,
-        locations: {
-            matrix: gl.getUniformLocation(program, 'u_matrix'),
-            modelMatrix: gl.getUniformLocation(program, 'u_modelMatrix'),
-            position: gl.getAttribLocation(program, 'a_position')
-        }
     }
 }
 
@@ -98,17 +93,19 @@ function initTank(gl) {
  * @param {*} param2 
  */
 function drawTank(gl, tank, { viewProjectionMatrix }) {
-    gl.useProgram(tank.program);
+    gl.useProgram(tank.programInfo.program);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, tank.positionBuffer);
-    gl.enableVertexAttribArray(tank.locations.position);
-    gl.vertexAttribPointer(tank.locations.position, 3, gl.FLOAT, false, 0, 0);
+    webglUtils.setAttributes(tank.programInfo.attribSetters, {
+        a_position: { buffer: tank.positionBuffer, numComponents: 3 },
+    });
 
     const tankModelMatrix = m4.identity();
     const tankMvpMatrix = viewProjectionMatrix;
 
-    gl.uniformMatrix4fv(tank.locations.matrix, false, tankMvpMatrix);
-    gl.uniformMatrix4fv(tank.locations.modelMatrix, false, tankModelMatrix);
+    webglUtils.setUniforms(tank.programInfo, {
+        u_matrix:      tankMvpMatrix,
+        u_modelMatrix: tankModelMatrix,
+    });
 
     gl.enable(gl.BLEND); //enable blend to mix colors
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); //alpha * new_color * (1 - alpha) * existing_color (alpha = visibility)

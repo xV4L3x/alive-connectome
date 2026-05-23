@@ -172,7 +172,7 @@ const roomWallUVs = new Float32Array([
  * @param {WebGLRenderingContext} gl 
  */
 async function initRoom(gl) {
-    const program = createShaderProgram(gl, roomVertexShaderSource, roomFragmentShaderSource);
+    const programInfo = webglUtils.createProgramInfo(gl, [roomVertexShaderSource, roomFragmentShaderSource]);
 
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -234,7 +234,7 @@ async function initRoom(gl) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
     return {
-        program,
+        programInfo,
         positionBuffer,
         normalBuffer,
         uvBuffer,
@@ -245,17 +245,6 @@ async function initRoom(gl) {
         wallUvBuffer,
         wallTexture,
         wallVertexCount: 5 * 6,
-        locations: {
-            matrix:           gl.getUniformLocation(program, 'u_matrix'),
-            modelMatrix:      gl.getUniformLocation(program, 'u_modelMatrix'),
-            lightPositions:   gl.getUniformLocation(program, 'u_lightPositions'),
-            lightIntensities: gl.getUniformLocation(program, 'u_lightIntensities'),
-            viewPosition:     gl.getUniformLocation(program, 'u_viewPosition'),
-            textureLoc:       gl.getUniformLocation(program, 'u_texture'),
-            position:         gl.getAttribLocation(program, 'a_position'),
-            normal:           gl.getAttribLocation(program, 'a_normal'),
-            texCoord:         gl.getAttribLocation(program, 'a_texCoord'),
-        }
     };
 }
 
@@ -266,48 +255,33 @@ async function initRoom(gl) {
  * @param {*} param2 
  */
 function drawRoom(gl, room, { viewProjectionMatrix, eye }) {
-    gl.useProgram(room.program);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, room.positionBuffer);
-    gl.enableVertexAttribArray(room.locations.position);
-    gl.vertexAttribPointer(room.locations.position, 3, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, room.normalBuffer);
-    gl.enableVertexAttribArray(room.locations.normal);
-    gl.vertexAttribPointer(room.locations.normal, 3, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, room.uvBuffer);
-    gl.enableVertexAttribArray(room.locations.texCoord);
-    gl.vertexAttribPointer(room.locations.texCoord, 2, gl.FLOAT, false, 0, 0);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, room.texture);
-    gl.uniform1i(room.locations.textureLoc, 0);
+    gl.useProgram(room.programInfo.program);
 
     const modelMatrix = m4.identity();
     const mvpMatrix   = m4.multiply(viewProjectionMatrix, modelMatrix);
 
-    gl.uniformMatrix4fv(room.locations.matrix, false, mvpMatrix);
-    gl.uniformMatrix4fv(room.locations.modelMatrix, false, modelMatrix);
-    gl.uniform3fv(room.locations.lightPositions, Lights.getPositionsFlat());
-    gl.uniform1fv(room.locations.lightIntensities, Lights.getIntensities());
-    gl.uniform3fv(room.locations.viewPosition, eye);
-
+    webglUtils.setAttributes(room.programInfo.attribSetters, {
+        a_position: { buffer: room.positionBuffer, numComponents: 3 },
+        a_normal:   { buffer: room.normalBuffer,   numComponents: 3 },
+        a_texCoord: { buffer: room.uvBuffer,       numComponents: 2 },
+    });
+    webglUtils.setUniforms(room.programInfo, {
+        u_matrix:           mvpMatrix,
+        u_modelMatrix:      modelMatrix,
+        u_texture:          room.texture,
+        u_lightPositions:   Lights.getPositionsFlat(),
+        u_lightIntensities: Lights.getIntensities(),
+        u_viewPosition:     eye,
+    });
     gl.drawArrays(gl.TRIANGLES, 0, room.floorVertexCount);
 
-
     //DRAW WALLS
-    gl.bindBuffer(gl.ARRAY_BUFFER, room.wallPositionBuffer);
-    gl.vertexAttribPointer(room.locations.position, 3, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, room.wallNormalBuffer);
-    gl.vertexAttribPointer(room.locations.normal, 3, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, room.wallUvBuffer);
-    gl.vertexAttribPointer(room.locations.texCoord, 2, gl.FLOAT, false, 0, 0);
-
-    gl.bindTexture(gl.TEXTURE_2D, room.wallTexture);
-
+    webglUtils.setAttributes(room.programInfo.attribSetters, {
+        a_position: { buffer: room.wallPositionBuffer, numComponents: 3 },
+        a_normal:   { buffer: room.wallNormalBuffer,   numComponents: 3 },
+        a_texCoord: { buffer: room.wallUvBuffer,       numComponents: 2 },
+    });
+    webglUtils.setUniforms(room.programInfo, { u_texture: room.wallTexture });
     gl.drawArrays(gl.TRIANGLES, 0, room.wallVertexCount);
 }
 

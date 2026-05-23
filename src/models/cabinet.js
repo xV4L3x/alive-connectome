@@ -160,7 +160,7 @@ const cabinetUVs = new Float32Array([
 
 
 async function initCabinet(gl) {
-    const program = createShaderProgram(gl, cabinetVertexShaderSource, cabinetFragmentShaderSource);
+    const programInfo = webglUtils.createProgramInfo(gl, [cabinetVertexShaderSource, cabinetFragmentShaderSource]);
 
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -199,62 +199,39 @@ async function initCabinet(gl) {
     gl.generateMipmap(gl.TEXTURE_2D);
 
     return {
-        program,
+        programInfo,
         positionBuffer,
         normalBuffer,
         vertexCount: cabinetPositions.length / 3,
         texcoordBuffer,
         texture,
         metalnessTexture,
-        locations: {
-            matrix: gl.getUniformLocation(program, 'u_matrix'),
-            modelMatrix: gl.getUniformLocation(program, 'u_modelMatrix'),
-            lightPositions: gl.getUniformLocation(program, 'u_lightPositions'),
-            lightIntensities: gl.getUniformLocation(program, 'u_lightIntensities'),
-            viewPosition: gl.getUniformLocation(program, 'u_viewPosition'),
-            texture: gl.getUniformLocation(program, 'u_texture'),
-            metalness: gl.getUniformLocation(program, 'u_metalness'),
-            position: gl.getAttribLocation(program, 'a_position'),
-            normal: gl.getAttribLocation(program, 'a_normal'),
-            texcoord: gl.getAttribLocation(program, 'a_texcoord'),
-            advanced: gl.getUniformLocation(program, 'u_advanced'),
-        }
     };
 }
 
 
 function drawCabinet(gl, cabinet, { viewProjectionMatrix, eye }) {
-    gl.useProgram(cabinet.program);
+    gl.useProgram(cabinet.programInfo.program);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, cabinet.positionBuffer);
-    gl.enableVertexAttribArray(cabinet.locations.position);
-    gl.vertexAttribPointer(cabinet.locations.position, 3, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, cabinet.normalBuffer);
-    gl.enableVertexAttribArray(cabinet.locations.normal);
-    gl.vertexAttribPointer(cabinet.locations.normal, 3, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, cabinet.texcoordBuffer);
-    gl.enableVertexAttribArray(cabinet.locations.texcoord);
-    gl.vertexAttribPointer(cabinet.locations.texcoord, 2, gl.FLOAT, false, 0, 0);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, cabinet.texture);
-    gl.uniform1i(cabinet.locations.texture, 0);
-
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, cabinet.metalnessTexture);
-    gl.uniform1i(cabinet.locations.metalness, 1);
+    webglUtils.setAttributes(cabinet.programInfo.attribSetters, {
+        a_position: { buffer: cabinet.positionBuffer,  numComponents: 3 },
+        a_normal:   { buffer: cabinet.normalBuffer,    numComponents: 3 },
+        a_texcoord: { buffer: cabinet.texcoordBuffer,  numComponents: 2 },
+    });
 
     const cabinetModelMatrix = m4.translation(0, -0.01, 0);
     const cabinetMvpMatrix = m4.multiply(viewProjectionMatrix, cabinetModelMatrix);
 
-    gl.uniformMatrix4fv(cabinet.locations.matrix, false, cabinetMvpMatrix);
-    gl.uniformMatrix4fv(cabinet.locations.modelMatrix, false, cabinetModelMatrix);
-    gl.uniform3fv(cabinet.locations.lightPositions, Lights.getPositionsFlat());
-    gl.uniform1fv(cabinet.locations.lightIntensities, Lights.getIntensities());
-    gl.uniform3fv(cabinet.locations.viewPosition,  eye);
-    gl.uniform1f(cabinet.locations.advanced, params.shadows ? 1.0 : 0.0);
+    webglUtils.setUniforms(cabinet.programInfo, {
+        u_matrix:           cabinetMvpMatrix,
+        u_modelMatrix:      cabinetModelMatrix,
+        u_texture:          cabinet.texture,
+        u_metalness:        cabinet.metalnessTexture,
+        u_lightPositions:   Lights.getPositionsFlat(),
+        u_lightIntensities: Lights.getIntensities(),
+        u_viewPosition:     eye,
+        u_advanced:         params.shadows ? 1.0 : 0.0,
+    });
 
     gl.drawArrays(gl.TRIANGLES, 0, cabinet.vertexCount);
 }

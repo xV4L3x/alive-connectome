@@ -269,8 +269,8 @@ function generateRopeGeometry() {
 
 
 async function initBadge(gl) {
-    const badgeProgram = createShaderProgram(gl, badgeVertexShaderSource, badgeFragmentShaderSource);
-    const ropeProgram  = createShaderProgram(gl, ropeVertexShaderSource,  ropeFragmentShaderSource);
+    const badgeProgramInfo = webglUtils.createProgramInfo(gl, [badgeVertexShaderSource, badgeFragmentShaderSource]);
+    const ropeProgramInfo  = webglUtils.createProgramInfo(gl, [ropeVertexShaderSource,  ropeFragmentShaderSource]);
 
     const badgeGeo = generateBadgeGeometry();
     const ropeGeo  = generateRopeGeometry();
@@ -329,39 +329,14 @@ async function initBadge(gl) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-    const badgeLoc = {
-        matrix:           gl.getUniformLocation(badgeProgram, 'u_matrix'),
-        modelMatrix:      gl.getUniformLocation(badgeProgram, 'u_modelMatrix'),
-        lightPositions:   gl.getUniformLocation(badgeProgram, 'u_lightPositions'),
-        lightIntensities: gl.getUniformLocation(badgeProgram, 'u_lightIntensities'),
-        viewPosition:     gl.getUniformLocation(badgeProgram, 'u_viewPosition'),
-        texFront:         gl.getUniformLocation(badgeProgram, 'u_texFront'),
-        texBack:          gl.getUniformLocation(badgeProgram, 'u_texBack'),
-        mode:             gl.getUniformLocation(badgeProgram, 'u_mode'),
-        position:         gl.getAttribLocation(badgeProgram,  'a_position'),
-        normal:           gl.getAttribLocation(badgeProgram,  'a_normal'),
-        texcoord:         gl.getAttribLocation(badgeProgram,  'a_texcoord'),
-    };
-
-    const ropeLoc = {
-        matrix:           gl.getUniformLocation(ropeProgram, 'u_matrix'),
-        modelMatrix:      gl.getUniformLocation(ropeProgram, 'u_modelMatrix'),
-        lightPositions:   gl.getUniformLocation(ropeProgram, 'u_lightPositions'),
-        lightIntensities: gl.getUniformLocation(ropeProgram, 'u_lightIntensities'),
-        viewPosition:     gl.getUniformLocation(ropeProgram, 'u_viewPosition'),
-        position:         gl.getAttribLocation(ropeProgram,  'a_position'),
-        normal:           gl.getAttribLocation(ropeProgram,  'a_normal'),
-    };
-
     return {
-        badgeProgram, posBuffer, normalBuffer, uvBuffer,
+        badgeProgramInfo, posBuffer, normalBuffer, uvBuffer,
         texFront, texBack,
         frontCount: badgeGeo.frontVertexCount,
         backCount:  badgeGeo.rearVertexCount,
         sideCount:  badgeGeo.sideVertexCount,
-        ropeProgram, ropePosBuffer, ropeNormalBuffer,
+        ropeProgramInfo, ropePosBuffer, ropeNormalBuffer,
         ropeVertexCount: ropeGeo.vertexCount,
-        badgeLoc, ropeLoc,
     };
 }
 
@@ -369,69 +344,58 @@ async function initBadge(gl) {
 function drawBadge(gl, badge, { viewProjectionMatrix, eye }) {
 
     // ── BADGE ──────────────────────────────────────────────────────
-    gl.useProgram(badge.badgeProgram);
+    gl.useProgram(badge.badgeProgramInfo.program);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, badge.posBuffer);
-    gl.enableVertexAttribArray(badge.badgeLoc.position);
-    gl.vertexAttribPointer(badge.badgeLoc.position, 3, gl.FLOAT, false, 0, 0);
+    webglUtils.setAttributes(badge.badgeProgramInfo.attribSetters, {
+        a_position: { buffer: badge.posBuffer,    numComponents: 3 },
+        a_normal:   { buffer: badge.normalBuffer, numComponents: 3 },
+        a_texcoord: { buffer: badge.uvBuffer,     numComponents: 2 },
+    });
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, badge.normalBuffer);
-    gl.enableVertexAttribArray(badge.badgeLoc.normal);
-    gl.vertexAttribPointer(badge.badgeLoc.normal, 3, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, badge.uvBuffer);
-    gl.enableVertexAttribArray(badge.badgeLoc.texcoord);
-    gl.vertexAttribPointer(badge.badgeLoc.texcoord, 2, gl.FLOAT, false, 0, 0);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, badge.texFront);
-    gl.uniform1i(badge.badgeLoc.texFront, 0);
-
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, badge.texBack);
-    gl.uniform1i(badge.badgeLoc.texBack, 1);
-
-    // Il badge è in spazio locale centrato nell'origine XY, rivolto verso +Z
     const badgeModel = m4.translation(BADGE_X, BADGE_Y, BADGE_Z);
     const badgeMVP   = m4.multiply(viewProjectionMatrix, badgeModel);
-    gl.uniformMatrix4fv(badge.badgeLoc.matrix,      false, badgeMVP);
-    gl.uniformMatrix4fv(badge.badgeLoc.modelMatrix, false, badgeModel);
-    gl.uniform3fv(badge.badgeLoc.lightPositions,   Lights.getPositionsFlat());
-    gl.uniform1fv(badge.badgeLoc.lightIntensities, Lights.getIntensities());
-    gl.uniform3fv(badge.badgeLoc.viewPosition,     eye);
+
+    webglUtils.setUniforms(badge.badgeProgramInfo, {
+        u_matrix:           badgeMVP,
+        u_modelMatrix:      badgeModel,
+        u_texFront:         badge.texFront,
+        u_texBack:          badge.texBack,
+        u_lightPositions:   Lights.getPositionsFlat(),
+        u_lightIntensities: Lights.getIntensities(),
+        u_viewPosition:     eye,
+    });
 
     // Draw call 1: faccia frontale (mode 0 → u_texFront)
-    gl.uniform1i(badge.badgeLoc.mode, 0);
+    webglUtils.setUniforms(badge.badgeProgramInfo, { u_mode: 0 });
     gl.drawArrays(gl.TRIANGLES, 0, badge.frontCount);
 
     // Draw call 2: faccia posteriore (mode 1 → u_texBack)
-    gl.uniform1i(badge.badgeLoc.mode, 1);
+    webglUtils.setUniforms(badge.badgeProgramInfo, { u_mode: 1 });
     gl.drawArrays(gl.TRIANGLES, badge.frontCount, badge.backCount);
 
     // Draw call 3: bordi laterali (mode 2 → colore solido)
-    gl.uniform1i(badge.badgeLoc.mode, 2);
+    webglUtils.setUniforms(badge.badgeProgramInfo, { u_mode: 2 });
     gl.drawArrays(gl.TRIANGLES, badge.frontCount + badge.backCount, badge.sideCount);
 
 
     // ── CORDA ──────────────────────────────────────────────────────
-    gl.useProgram(badge.ropeProgram);
+    gl.useProgram(badge.ropeProgramInfo.program);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, badge.ropePosBuffer);
-    gl.enableVertexAttribArray(badge.ropeLoc.position);
-    gl.vertexAttribPointer(badge.ropeLoc.position, 3, gl.FLOAT, false, 0, 0);
+    webglUtils.setAttributes(badge.ropeProgramInfo.attribSetters, {
+        a_position: { buffer: badge.ropePosBuffer,    numComponents: 3 },
+        a_normal:   { buffer: badge.ropeNormalBuffer, numComponents: 3 },
+    });
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, badge.ropeNormalBuffer);
-    gl.enableVertexAttribArray(badge.ropeLoc.normal);
-    gl.vertexAttribPointer(badge.ropeLoc.normal, 3, gl.FLOAT, false, 0, 0);
-
-    // La corda parte dalla sommità del badge (BADGE_Y + BADGE_HALF_H) e sale verso ROPE_ANCHOR_Y
     const ropeModel = m4.translation(BADGE_X, 0, BADGE_Z);
     const ropeMVP   = m4.multiply(viewProjectionMatrix, ropeModel);
-    gl.uniformMatrix4fv(badge.ropeLoc.matrix,      false, ropeMVP);
-    gl.uniformMatrix4fv(badge.ropeLoc.modelMatrix, false, ropeModel);
-    gl.uniform3fv(badge.ropeLoc.lightPositions,   Lights.getPositionsFlat());
-    gl.uniform1fv(badge.ropeLoc.lightIntensities, Lights.getIntensities());
-    gl.uniform3fv(badge.ropeLoc.viewPosition,     eye);
+
+    webglUtils.setUniforms(badge.ropeProgramInfo, {
+        u_matrix:           ropeMVP,
+        u_modelMatrix:      ropeModel,
+        u_lightPositions:   Lights.getPositionsFlat(),
+        u_lightIntensities: Lights.getIntensities(),
+        u_viewPosition:     eye,
+    });
 
     gl.drawArrays(gl.TRIANGLES, 0, badge.ropeVertexCount);
 }

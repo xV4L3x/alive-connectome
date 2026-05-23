@@ -81,7 +81,7 @@ function generateBottomDiscPositions() {
  * @param {WebGLRenderingContext} gl 
  */
 function initSpotlight(gl) {
-    const program = createShaderProgram(gl, spotlightVertexShaderSource, spotlightFragmentShaderSource);
+    const programInfo = webglUtils.createProgramInfo(gl, [spotlightVertexShaderSource, spotlightFragmentShaderSource]);
 
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -92,16 +92,11 @@ function initSpotlight(gl) {
     gl.bufferData(gl.ARRAY_BUFFER, generateBottomDiscPositions(), gl.STATIC_DRAW);
 
     return {
-        program,
+        programInfo,
         positionBuffer,
         bottomDiscBuffer,
-        vertexCount: CYLINDER_SIDES * 3 * 3, //3 triangles per side
-        bottomDiscVertexCount: CYLINDER_SIDES * 3, //a triangle per side
-        locations: {
-            matrix: gl.getUniformLocation(program, 'u_matrix'),
-            position: gl.getAttribLocation(program, 'a_position'),
-            color: gl.getUniformLocation(program, 'u_color'),
-        }
+        vertexCount: CYLINDER_SIDES * 3 * 3,
+        bottomDiscVertexCount: CYLINDER_SIDES * 3,
     }
 }
 
@@ -112,9 +107,7 @@ function initSpotlight(gl) {
  * @param {*} param2 
  */
 function drawSpotlight(gl, spotlight, { viewProjectionMatrix }) {
-    gl.useProgram(spotlight.program);
-
-    gl.enableVertexAttribArray(spotlight.locations.position);
+    gl.useProgram(spotlight.programInfo.program);
 
     const positions   = Lights.getPositionsRaw();
     const intensities = Lights.getIntensitiesRaw();
@@ -123,8 +116,8 @@ function drawSpotlight(gl, spotlight, { viewProjectionMatrix }) {
         const [px, py, pz] = positions[i];
         const intensity = intensities[i];
 
-        const horizontalDistance = Math.sqrt(px*px + pz*pz); //distance between light and the center
-        const yaw = Math.atan2(-px, -pz); //angle of the inverse vector of the tank corner
+        const horizontalDistance = Math.sqrt(px*px + pz*pz);
+        const yaw = Math.atan2(-px, -pz);
         const pitch = Math.atan2(horizontalDistance, py);
 
         const modelMatrix = m4.multiply(
@@ -136,16 +129,17 @@ function drawSpotlight(gl, spotlight, { viewProjectionMatrix }) {
         );
 
         const mvpMatrix = m4.multiply(viewProjectionMatrix, modelMatrix);
-        gl.uniformMatrix4fv(spotlight.locations.matrix, false, mvpMatrix);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, spotlight.positionBuffer);
-        gl.vertexAttribPointer(spotlight.locations.position, 3, gl.FLOAT, false, 0, 0);
-        gl.uniform3fv(spotlight.locations.color, [0.65, 0.65, 0.65]);
+        webglUtils.setAttributes(spotlight.programInfo.attribSetters, {
+            a_position: { buffer: spotlight.positionBuffer, numComponents: 3 },
+        });
+        webglUtils.setUniforms(spotlight.programInfo, { u_matrix: mvpMatrix, u_color: [0.65, 0.65, 0.65] });
         gl.drawArrays(gl.TRIANGLES, 0, spotlight.vertexCount);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, spotlight.bottomDiscBuffer);
-        gl.vertexAttribPointer(spotlight.locations.position, 3, gl.FLOAT, false, 0, 0);
-        gl.uniform3fv(spotlight.locations.color, [1.0 * intensity, 0.98 * intensity, 0.75 * intensity]);
+        webglUtils.setAttributes(spotlight.programInfo.attribSetters, {
+            a_position: { buffer: spotlight.bottomDiscBuffer, numComponents: 3 },
+        });
+        webglUtils.setUniforms(spotlight.programInfo, { u_color: [1.0 * intensity, 0.98 * intensity, 0.75 * intensity] });
         gl.drawArrays(gl.TRIANGLES, 0, spotlight.bottomDiscVertexCount);
     }
 }

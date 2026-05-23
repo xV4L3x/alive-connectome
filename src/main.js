@@ -75,7 +75,6 @@ async function main() {
     const FOOD_SPAWN_RATE = 0.15; // food spawn probability
     const MAX_FOODS = 8; // avoid too much food
 
-
     function render(timestamp) {
 
         if (lastTimestamp === null) {
@@ -120,13 +119,14 @@ async function main() {
         }
         canvas.style.cursor = hoveredWorm ? 'pointer' : 'default';
 
-
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         for (const wormInstance of worms) {
             updateWorm(wormInstance, deltaTime, params, foods);
         }
         checkWormCollisions(worms);
+
+        //SPAWN RANDOM FOOD
         if (foods.length < MAX_FOODS && Math.random() < FOOD_SPAWN_RATE * deltaTime) {
             const x = (Math.random() * 2 - 1) * (TANK_WIDTH - 1);
             const z = (Math.random() * 2 - 1) * (TANK_DEPTH - 1);
@@ -135,23 +135,22 @@ async function main() {
             foods.push(createFoodInstance([x, 0.01, z], nutrients));
         }
 
-
-
-
+        //DELETE EMPTY FOOD
         for (let i = foods.length - 1; i >= 0; i--) {
             if (foods[i].nutrients <= 0) foods.splice(i, 1); //delete food if reachs 0
         }
+
+        //RESET GUI IF SELECTED WORM DIES
         for (let i = worms.length - 1; i >= 0; i--) {
             if (!worms[i].alive) {
                 if (worms[i] === selectedWorm) { selectedWorm = null; rebuildSelectionGui(); }
                 worms.splice(i, 1);
             }
         }
-        
-        
 
         updateHUD();
 
+        //DRAWING
         drawRoom(gl, room, { viewProjectionMatrix, eye });
         drawBadge(gl, badge, { viewProjectionMatrix, eye });
         drawCabinet(gl, cabinet, { viewProjectionMatrix, eye });
@@ -164,9 +163,6 @@ async function main() {
         }
         drawSpotlight(gl, spotlight, { viewProjectionMatrix });
         drawTank(gl, tank, { viewProjectionMatrix });
-
-        
-
 
         requestAnimationFrame(render);
     }
