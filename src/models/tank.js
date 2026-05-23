@@ -95,7 +95,7 @@ function initTank(gl) {
 function drawTank(gl, tank, { viewProjectionMatrix }) {
     gl.useProgram(tank.programInfo.program);
 
-    webglUtils.setAttributes(tank.programInfo.attribSetters, {
+    webglUtils.setAttributes(tank.programInfo, {
         a_position: { buffer: tank.positionBuffer, numComponents: 3 },
     });
 
@@ -111,7 +111,7 @@ function drawTank(gl, tank, { viewProjectionMatrix }) {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); //alpha * new_color * (1 - alpha) * existing_color (alpha = visibility)
     gl.depthMask(false);
 
-    gl.drawArrays(gl.TRIANGLES, 0, tank.vertexCount);
+    gl.drawArrays(gl.TRIANGLES, 0, tank.vertexCount);   
     gl.depthMask(true);
     gl.disable(gl.BLEND);
 }

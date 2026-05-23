@@ -260,7 +260,7 @@ function drawRoom(gl, room, { viewProjectionMatrix, eye }) {
     const modelMatrix = m4.identity();
     const mvpMatrix   = m4.multiply(viewProjectionMatrix, modelMatrix);
 
-    webglUtils.setAttributes(room.programInfo.attribSetters, {
+    webglUtils.setAttributes(room.programInfo, {
         a_position: { buffer: room.positionBuffer, numComponents: 3 },
         a_normal:   { buffer: room.normalBuffer,   numComponents: 3 },
         a_texCoord: { buffer: room.uvBuffer,       numComponents: 2 },
@@ -276,7 +276,7 @@ function drawRoom(gl, room, { viewProjectionMatrix, eye }) {
     gl.drawArrays(gl.TRIANGLES, 0, room.floorVertexCount);
 
     //DRAW WALLS
-    webglUtils.setAttributes(room.programInfo.attribSetters, {
+    webglUtils.setAttributes(room.programInfo, {
         a_position: { buffer: room.wallPositionBuffer, numComponents: 3 },
         a_normal:   { buffer: room.wallNormalBuffer,   numComponents: 3 },
         a_texCoord: { buffer: room.wallUvBuffer,       numComponents: 2 },

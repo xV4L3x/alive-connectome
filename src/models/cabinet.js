@@ -213,7 +213,7 @@ async function initCabinet(gl) {
 function drawCabinet(gl, cabinet, { viewProjectionMatrix, eye }) {
     gl.useProgram(cabinet.programInfo.program);
 
-    webglUtils.setAttributes(cabinet.programInfo.attribSetters, {
+    webglUtils.setAttributes(cabinet.programInfo, {
         a_position: { buffer: cabinet.positionBuffer,  numComponents: 3 },
         a_normal:   { buffer: cabinet.normalBuffer,    numComponents: 3 },
         a_texcoord: { buffer: cabinet.texcoordBuffer,  numComponents: 2 },

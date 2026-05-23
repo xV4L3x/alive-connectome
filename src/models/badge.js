@@ -346,7 +346,7 @@ function drawBadge(gl, badge, { viewProjectionMatrix, eye }) {
     // ── BADGE ──────────────────────────────────────────────────────
     gl.useProgram(badge.badgeProgramInfo.program);
 
-    webglUtils.setAttributes(badge.badgeProgramInfo.attribSetters, {
+    webglUtils.setAttributes(badge.badgeProgramInfo, {
         a_position: { buffer: badge.posBuffer,    numComponents: 3 },
         a_normal:   { buffer: badge.normalBuffer, numComponents: 3 },
         a_texcoord: { buffer: badge.uvBuffer,     numComponents: 2 },
@@ -381,7 +381,7 @@ function drawBadge(gl, badge, { viewProjectionMatrix, eye }) {
     // ── CORDA ──────────────────────────────────────────────────────
     gl.useProgram(badge.ropeProgramInfo.program);
 
-    webglUtils.setAttributes(badge.ropeProgramInfo.attribSetters, {
+    webglUtils.setAttributes(badge.ropeProgramInfo, {
         a_position: { buffer: badge.ropePosBuffer,    numComponents: 3 },
         a_normal:   { buffer: badge.ropeNormalBuffer, numComponents: 3 },
     });

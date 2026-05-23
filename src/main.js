@@ -84,7 +84,7 @@ async function main() {
         lastTimestamp = timestamp;
         time += deltaTime;
 
-        resizeCanvas(canvas);
+        webglUtils.resizeCanvasToDisplaySize(canvas, window.devicePixelRatio);
         gl.viewport(0, 0, canvas.width, canvas.height);
         
         const { eye, lookTarget } = resolveCamera(camera, cameraMode, selectedWorm);

@@ -437,7 +437,7 @@ function checkWormCollisions(worms) {
 function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, highlighted = false) {
     gl.useProgram(worm.programInfo.program);
 
-    webglUtils.setAttributes(worm.programInfo.attribSetters, {
+    webglUtils.setAttributes(worm.programInfo, {
         a_position: { buffer: worm.positionBuffer, numComponents: 3},
         a_color: { buffer: worm.colorBuffer, numComponents: 4 },
         a_normal: { buffer: worm.normalBuffer, numComponents: 3}

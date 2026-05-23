@@ -130,13 +130,13 @@ function drawSpotlight(gl, spotlight, { viewProjectionMatrix }) {
 
         const mvpMatrix = m4.multiply(viewProjectionMatrix, modelMatrix);
 
-        webglUtils.setAttributes(spotlight.programInfo.attribSetters, {
+        webglUtils.setAttributes(spotlight.programInfo, {
             a_position: { buffer: spotlight.positionBuffer, numComponents: 3 },
         });
         webglUtils.setUniforms(spotlight.programInfo, { u_matrix: mvpMatrix, u_color: [0.65, 0.65, 0.65] });
         gl.drawArrays(gl.TRIANGLES, 0, spotlight.vertexCount);
 
-        webglUtils.setAttributes(spotlight.programInfo.attribSetters, {
+        webglUtils.setAttributes(spotlight.programInfo, {
             a_position: { buffer: spotlight.bottomDiscBuffer, numComponents: 3 },
         });
         webglUtils.setUniforms(spotlight.programInfo, { u_color: [1.0 * intensity, 0.98 * intensity, 0.75 * intensity] });

@@ -136,7 +136,7 @@ async function initPlane(gl) {
 function drawPlane(gl, plane, { viewProjectionMatrix, eye, lightPosition }) {
     gl.useProgram(plane.programInfo.program);
 
-    webglUtils.setAttributes(plane.programInfo.attribSetters, {
+    webglUtils.setAttributes(plane.programInfo, {
         a_position: { buffer: plane.positionBuffer, numComponents: 3 },
         a_normal:   { buffer: plane.normalBuffer,   numComponents: 3 },
         a_texCoord: { buffer: plane.uvBuffer,       numComponents: 2 },

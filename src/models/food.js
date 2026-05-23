@@ -100,7 +100,7 @@ function createFoodInstance(position = [0, 0, 0], nutrients = 1.0) {
 function drawFood(gl, food, foodInstance, { viewProjectionMatrix, eye }) {
     gl.useProgram(food.programInfo.program);
 
-    webglUtils.setAttributes(food.programInfo.attribSetters, {
+    webglUtils.setAttributes(food.programInfo, {
         a_position: { buffer: food.positionBuffer, numComponents: 3 },
     });
 
