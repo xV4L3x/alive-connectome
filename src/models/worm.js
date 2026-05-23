@@ -46,8 +46,11 @@ const wormFragmentShaderSource = `
     varying vec3 v_specular;
     varying float v_shininess;
 
-    uniform vec3 u_lightPositions[4]; //4 lights, one each angle
+    uniform vec3 u_lightPositions[4];
     uniform float u_lightIntensities[4];
+    uniform vec3 u_lightDirections[4];
+    uniform float u_lightConeAngle;
+
     uniform vec3 u_viewPosition; //camera position
     uniform float u_advanced;
 
@@ -76,13 +79,20 @@ const wormFragmentShaderSource = `
 
         for (int i = 0; i < 4; i++) {
             vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos); //surface towards light direction
-            vec3 reflectDir = reflect(-lightDir, normal);
+            float spotCos = dot(-lightDir, normalize(u_lightDirections[i])); //angle between light->face and light->origin
+            if (spotCos < u_lightConeAngle) continue;
 
-            float diff = max(dot(normal, lightDir), 0.0); //how much surface is towards the light (avoid negative, in shadow)
-            vec3 diffuse = diff * v_diffuse.rgb * u_lightIntensities[i]; // diffuse
+            vec3 reflectDir = reflect(-lightDir, normal);
+            float spotFactor = smoothstep(u_lightConeAngle, u_lightConeAngle + 0.1, spotCos);
+
+            float dist = length(u_lightPositions[i] - v_worldPos);
+            float att = 1.0 / (1.0 + 0.02 * dist + 0.003 * dist * dist);
+
+            float diff = max(dot(normal, lightDir), 0.0);
+            vec3 diffuse = diff * v_diffuse.rgb * u_lightIntensities[i] * spotFactor * att; // diffuse
 
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), v_shininess);
-            vec3 specular = spec * v_specular * u_lightIntensities[i] * u_advanced; // specular
+            vec3 specular = spec * v_specular * u_lightIntensities[i] * u_advanced * spotFactor * att; // specular
             result += diffuse + specular;
         }
     
@@ -531,13 +541,15 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
   
     //Write values
     webglUtils.setUniforms(worm.programInfo, {
-        u_matrix:           wormMvpMatrix,
-        u_modelMatrix:      wormModelMatrix,
-        u_lightPositions:   Lights.getPositionsFlat(),
+        u_matrix: wormMvpMatrix,
+        u_modelMatrix: wormModelMatrix,
+        u_lightPositions: Lights.getPositionsFlat(),
         u_lightIntensities: Lights.getIntensities(),
-        u_viewPosition:     eye,
-        u_isOutline:        highlighted ? 1.0 : 0.0,
-        u_advanced:         params.shadows ? 1.0 : 0.0,
+        u_lightDirections: Lights.getDirectionsFlat(),
+        u_lightConeAngle: Lights.getLightConeAngle(),
+        u_viewPosition: eye,
+        u_isOutline: highlighted ? 1.0 : 0.0,
+        u_advanced: params.shadows ? 1.0 : 0.0,
     });
 
 

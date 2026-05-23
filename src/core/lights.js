@@ -11,6 +11,21 @@ const Lights = (() => {
 
     const intensities = [1.0, 0.0, 0.0, 1.0];
 
+    const lightConeAngle = Math.cos(Math.PI / 4)
+
+    const directions = positions.map(([x, y, z]) => {
+        const originDistanceFactor = 0.8;
+        const tx = x * originDistanceFactor;
+        const tz = z * originDistanceFactor;
+        const dx = tx - x;  // = -x * 0.5
+        const dy = -y;
+        const dz = tz - z;  // = -z * 0.5
+        const len = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        return [dx/len, dy/len, dz/len];
+    });
+
+
+
     function getPositionsFlat() {
         return new Float32Array(positions.flat());
     }
@@ -25,6 +40,18 @@ const Lights = (() => {
 
     function getIntensitiesRaw() {
         return intensities;
+    }
+
+    function getDirectionsFlat() {
+        return new Float32Array(directions.flat());
+    }
+
+    function getDirectionsRaw() {
+        return directions;
+    }
+
+    function getLightConeAngle() {
+        return lightConeAngle;
     }
 
     function setIntensity(index, value) {
@@ -45,6 +72,7 @@ const Lights = (() => {
         return Math.min(1, total);
     }
 
+
     function computeDirectionAt(position) {
         const [px, py, pz] = position;
         let wx = 0, wz = 0;
@@ -55,16 +83,14 @@ const Lights = (() => {
             const dz = pz - lz;
             const dist2 = dx*dx + dy*dy + dz*dz;
             const denom = 1 + 0.02 * dist2;
-            const weight = intensities[i] / (denom * denom); // gradiente corretto
+            const weight = intensities[i] / (denom * denom);
             wx += (lx - px) * weight;
             wz += (lz - pz) * weight;
         }
         const len = Math.sqrt(wx*wx + wz*wz);
         if (len < 0.001) return [0, 0, 0];
-        return [wx / len, 0, wz / len]; // verso la luce crescente
+        return [wx / len, 0, wz / len];
     }
-
-
 
     return {
         getPositionsFlat,
@@ -72,6 +98,9 @@ const Lights = (() => {
         getIntensities,
         getIntensitiesRaw,
         setIntensity,
+        getDirectionsFlat,
+        getDirectionsRaw,
+        getLightConeAngle,
         computeAt,
         computeDirectionAt
     }

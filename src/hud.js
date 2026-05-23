@@ -199,7 +199,7 @@ function updateHUD() {
         }
         const wp = c.getWaveParams();
         info.amplitude = wp.amplitude;
-        info.direction = wp.direction;
+        info.direction = info.direction = Math.sign(selectionGui._worm.speed);
         info.speed = Math.abs(selectionGui._worm.speed);
         info.light = Lights.computeAt(selectionGui._worm.position);
     }

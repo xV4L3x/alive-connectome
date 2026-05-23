@@ -30,6 +30,9 @@ const planeFragmentShaderSource = `
     uniform sampler2D u_texture;
     uniform vec3 u_lightPositions[4];
     uniform float u_lightIntensities[4];
+    uniform vec3 u_lightDirections[4];
+    uniform float u_lightConeAngle;
+
     uniform vec3 u_viewPosition;
     uniform float u_advanced;
 
@@ -50,6 +53,9 @@ const planeFragmentShaderSource = `
 
         for (int i = 0; i < 4; i++) { 
             vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos);
+            float spotCos = dot(-lightDir, normalize(u_lightDirections[i]));
+            if (spotCos < u_lightConeAngle) continue;
+            float spotFactor = smoothstep(u_lightConeAngle, u_lightConeAngle + 0.1, spotCos);
             vec3 reflectDir = reflect(-lightDir, normal);
 
             float dist = length(u_lightPositions[i] - v_worldPos);
@@ -57,11 +63,11 @@ const planeFragmentShaderSource = `
 
             //diffuse light
             float diff = max(dot(normal, lightDir), 0.0);
-            vec3 diffuse = Kd * diff * color * u_lightIntensities[i] * att;
+            vec3 diffuse = Kd * diff * color * u_lightIntensities[i] * att * spotFactor;
 
             //specular light
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), 8.0);
-            vec3 specular = Ks * spec * specularColor * u_lightIntensities[i] * att * u_advanced;
+            vec3 specular = Ks * spec * specularColor * u_lightIntensities[i] * att * spotFactor * u_advanced;
 
             result += diffuse + specular;
         }
@@ -152,13 +158,15 @@ function drawPlane(gl, plane, { viewProjectionMatrix, eye, lightPosition }) {
     const planeMvpMatrix = viewProjectionMatrix;
 
     webglUtils.setUniforms(plane.programInfo, {
-        u_matrix:           planeMvpMatrix,
-        u_modelMatrix:      planeModelMatrix,
-        u_texture:          plane.texture,
-        u_lightPositions:   Lights.getPositionsFlat(),
+        u_matrix: planeMvpMatrix,
+        u_modelMatrix: planeModelMatrix,
+        u_texture: plane.texture,
+        u_lightPositions: Lights.getPositionsFlat(),
         u_lightIntensities: Lights.getIntensities(),
-        u_viewPosition:     eye,
-        u_advanced:         params.shadows ? 1.0 : 0.0,
+        u_lightDirections: Lights.getDirectionsFlat(),
+        u_lightConeAngle: Lights.getLightConeAngle(),
+        u_viewPosition: eye,
+        u_advanced: params.shadows ? 1.0 : 0.0,
     });
 
     gl.drawArrays(gl.TRIANGLES, 0, plane.vertexCount);
