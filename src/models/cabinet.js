@@ -38,42 +38,40 @@ const cabinetFragmentShaderSource = `
         vec3 steelColor = texture2D(u_texture, v_texcoord).rgb;
         float metalness = texture2D(u_metalness, v_texcoord).r;
 
+        //METAL MATERIAL CONFIGURATION
+        float Ka = mix(0.9, 0.05, metalness); // from less metal to more metal
+        float Kd = mix(0.0, 0.0, metalness);
+        float Ks = mix(0.0, 0.9, metalness);
+        float shininess = 64.0;
+        vec3 specularColor = steelColor;
+
+
         vec3 normal  = normalize(v_normal);
         vec3 viewDir = normalize(u_viewPosition - v_worldPos);
 
-        //ambient
-        float ambientStrength = mix(0.08, 0.25, metalness);
-
-        vec3 ambient = ambientStrength * steelColor;
-
-        float specularStrength = 0.8;
+        vec3 result = Ka * steelColor; //ambient
 
         for (int i = 0; i < 4; i++) {
             vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos);
+            vec3 reflectDir = reflect(-lightDir, normal);
 
             float dist = length(u_lightPositions[i] - v_worldPos);
             float attenuation = 1.0 / (1.0 + 0.02 * dist + 0.003 * dist * dist);
 
-
-            //diffuse
             float diff = max(dot(normal, lightDir), 0.0);
-            vec3 diffuse = diff * steelColor * (1.0 - metalness * 0.8) * u_lightIntensities[i] * attenuation;
+            vec3 diffuse = Kd * diff * steelColor * u_lightIntensities[i] * attenuation; //diffuse
             
-            //specular
-            vec3 reflectDir = reflect(-lightDir, normal);
-            float shininess = mix(64.0, 256.0, metalness);
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
-            vec3 specularColor = mix(vec3(1.0), steelColor, metalness);
-            vec3 specular = specularStrength * spec * specularColor * u_lightIntensities[i] * attenuation * u_advanced;
+            vec3 specular = Ks * spec * specularColor * u_lightIntensities[i] * attenuation * u_advanced; //specular
 
-            ambient += diffuse + specular;
+            result += diffuse + specular;
         }
 
         // fresnel solo nelle zone metalliche
         float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 4.0);
-        ambient += fresnel * steelColor * metalness * 0.5 * u_advanced;
+        result += fresnel * steelColor * metalness * 0.5 * u_advanced;
 
-        gl_FragColor = vec4(ambient, 1.0);
+        gl_FragColor = vec4(result, 1.0);
     }
 `;
 

@@ -37,9 +37,9 @@ const foodFragmentShaderSource = `
             float diff = max(dot(normal, lightDir), 0.0);
             vec3 diffuse = diff * u_color * u_lightIntensities[i];
 
-            vec3  reflectDir = reflect(-lightDir, normal);
-            float spec       = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
-            vec3  specular   = 0.1 * spec * vec3(1.0) * u_lightIntensities[i];
+            vec3 reflectDir = reflect(-lightDir, normal);
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
+            vec3 specular = 0.1 * spec * vec3(1.0) * u_lightIntensities[i];
 
             ambient += diffuse + specular;
         }

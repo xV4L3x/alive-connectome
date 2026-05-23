@@ -31,37 +31,54 @@ const roomFragmentShaderSource = `
     uniform vec3 u_lightPositions[4];
     uniform float u_lightIntensities[4];
     uniform vec3 u_viewPosition;
+    uniform int u_mode;
 
     void main() {
-        vec3 color = texture2D(u_texture, v_texCoord).rgb;
+        //CONCRETE MATERIAL CONFIGURATION
+        float Ka = 0.02;
+        float Kd = 0.8;
+        float Ks = 0.15;
+        float shininess = 16.0;
+        vec3 specularColor = vec3(0.1, 0.1, 0.1);
 
+        if (u_mode == 0) {
+            //TILES MATERIAL CONFIGURATION
+            Ka = 0.02;
+            Kd = 0.6;
+            Ks = 0.5;
+            float shininess = 128.0;
+            vec3 specularColor = vec3(0.3, 0.3, 0.3);
+        }
+
+        vec3 color = texture2D(u_texture, v_texCoord).rgb;
         vec3 normal = normalize(v_normal);
         vec3 viewDir = normalize(u_viewPosition - v_worldPos);
 
-        float ambientStrength = 0.03;
-        vec3 ambient = ambientStrength * color;
+        vec3 result = Ka * color; // ambient
 
-        float specularStrength = 0.3;
 
         for (int i = 0; i < 4; i++) {
             vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos);
+            vec3 reflectDir = reflect(-lightDir, normal);
 
             float dist = length(u_lightPositions[i] - v_worldPos);
             float attenuation = 1.0 / (1.0 + 0.02 * dist + 0.003 * dist * dist);
 
             float diff = max(dot(normal, lightDir), 0.0);
-            vec3 diffuse = diff * color * u_lightIntensities[i] * attenuation;
+            vec3 diffuse = Kd * diff * color * u_lightIntensities[i] * attenuation;
 
-            vec3 reflectDir = reflect(-lightDir, normal);
-            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-            vec3 specular = specularStrength * spec * vec3(1.0) * u_lightIntensities[i] * attenuation;
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
+            vec3 specular = Ks * spec * specularColor * u_lightIntensities[i] * attenuation;
 
-            ambient += diffuse + specular;
+            result += diffuse + specular;
         }
 
-        gl_FragColor = vec4(ambient, 1.0);
+        gl_FragColor = vec4(result, 1.0);
     }
 `;
+
+
+
 
 const ROOM_SIZE = 50; //half size
 const ROOM_HEIGHT = 60;
@@ -273,6 +290,7 @@ function drawRoom(gl, room, { viewProjectionMatrix, eye }) {
         u_lightIntensities: Lights.getIntensities(),
         u_viewPosition:     eye,
     });
+    webglUtils.setUniforms(room.programInfo, { u_mode: 0 });
     gl.drawArrays(gl.TRIANGLES, 0, room.floorVertexCount);
 
     //DRAW WALLS
@@ -282,6 +300,7 @@ function drawRoom(gl, room, { viewProjectionMatrix, eye }) {
         a_texCoord: { buffer: room.wallUvBuffer,       numComponents: 2 },
     });
     webglUtils.setUniforms(room.programInfo, { u_texture: room.wallTexture });
+    webglUtils.setUniforms(room.programInfo, { u_mode: 1 });
     gl.drawArrays(gl.TRIANGLES, 0, room.wallVertexCount);
 }
 

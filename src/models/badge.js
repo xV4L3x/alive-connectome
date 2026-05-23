@@ -41,45 +41,50 @@ const badgeFragmentShaderSource = `
     varying vec3 v_worldPos;
     varying vec2 v_texcoord;
 
-    uniform vec3      u_lightPositions[4];
-    uniform float     u_lightIntensities[4];
-    uniform vec3      u_viewPosition;
+    uniform vec3 u_lightPositions[4];
+    uniform float u_lightIntensities[4];
+    uniform vec3 u_viewPosition;
     uniform sampler2D u_texFront;
     uniform sampler2D u_texBack;
-    uniform int       u_mode;
+    uniform int u_mode;
 
     void main() {
-        // Sceglie il colore base in funzione della faccia che stiamo disegnando
+        //PLASTIC MATERIAL CONFIGURATION
+        float Ka = 0.15; //ambient
+        float Kd = 1.0; //diffuse
+        float Ks = 0.2; //specular
+        float shininess = 32.0; //cosine exponent
+        vec3 specularColor = vec3(1.0); 
+
         vec3 baseColor;
         if (u_mode == 0) {
-            baseColor = texture2D(u_texFront, v_texcoord).rgb;
+            baseColor = texture2D(u_texFront, v_texcoord).rgb; // front texture
         } else if (u_mode == 1) {
-            baseColor = texture2D(u_texBack, v_texcoord).rgb;
+            baseColor = texture2D(u_texBack, v_texcoord).rgb; // back texture
         } else {
-            baseColor = vec3(0.92, 0.92, 0.92);   // bordo plastica bianca
+            baseColor = vec3(0.92, 0.92, 0.92); // white border
         }
 
         vec3 normal  = normalize(v_normal);
         vec3 viewDir = normalize(u_viewPosition - v_worldPos);
 
-        vec3 color = 0.15 * baseColor;   // ambient
+        vec3 result = Ka * baseColor; // ambient
 
         for (int i = 0; i < 4; i++) {
-            vec3  lightDir = normalize(u_lightPositions[i] - v_worldPos);
-            float dist     = length(u_lightPositions[i] - v_worldPos);
-            float att      = 1.0 / (1.0 + 0.02 * dist + 0.003 * dist * dist);
+            vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos); // versor face to light (normalized for dot)
+            vec3 reflectDir = reflect(-lightDir, normal);
+            
+            float dist = length(u_lightPositions[i] - v_worldPos);
+            float att = 1.0 / (1.0 + 0.02 * dist + 0.003 * dist * dist);
 
-            // Diffuse
-            float diff  = max(dot(normal, lightDir), 0.0);
-            color      += diff * baseColor * u_lightIntensities[i] * att;
+            float diff = max(dot(normal, lightDir), 0.0);
+            result += Kd * baseColor * u_lightIntensities[i] * diff * att; // diffuse
 
-            // Specular (leggero, è plastica non metallo)
-            vec3  refl  = reflect(-lightDir, normal);
-            float spec  = pow(max(dot(viewDir, refl), 0.0), 32.0);
-            color      += 0.2 * spec * vec3(1.0) * u_lightIntensities[i] * att;
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess); 
+            result += Ks * spec * specularColor * u_lightIntensities[i] * att; // specular
         }
 
-        gl_FragColor = vec4(color, 1.0);
+        gl_FragColor = vec4(result, 1.0);
     }
 `;
 

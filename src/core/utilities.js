@@ -7,18 +7,22 @@ function parseOBJ(text, materials) {
     const outPositions = [];
     const outNormals = [];
     const outTexCoords = [];
-    const outColors = [];
+    const outDiffuse = [];
+    const outSpecular = [];
+    const outShininess = [];
 
     function addVertex(vert) {
         const indices = vert.split('/');
         const posIdx = parseInt(indices[0]) - 1;
         outPositions.push(...positions[posIdx]);
         
-
-        const color = (materials && materials[currentMaterial])
-            ? materials[currentMaterial].diffuse
-            : [0.8, 0.8, 0.8, 1.0];
-        outColors.push(...color);
+        const mat = (materials && materials[currentMaterial]) ? materials[currentMaterial] : {};
+        const color = mat.diffuse ?? [0.8, 0.8, 0.8, 1.0];
+        const specular = mat.specular ?? [0.0, 0.0, 0.0];
+        const shininess = mat.shininess ?? 1.0;
+        outDiffuse.push(...color);
+        outSpecular.push(...specular);
+        outShininess.push(shininess);
 
         
         if (indices[2]) {
@@ -66,7 +70,9 @@ function parseOBJ(text, materials) {
         positions: new Float32Array(outPositions),
         normals:   new Float32Array(outNormals),
         texCoords: new Float32Array(outTexCoords),
-        colors: new Float32Array(outColors),
+        diffuse: new Float32Array(outDiffuse),
+        specular: new Float32Array(outSpecular),
+        shininess: new Float32Array(outShininess),
         vertexCount: outPositions.length / 3,
     };
 }
@@ -80,17 +86,25 @@ function parseMTL(text) {
         if (parts[0] === 'newmtl') {
             currentMaterial = parts[1];
             materials[currentMaterial] = {};
+        } else if (parts[0] === 'Ka' && currentMaterial) {
+            materials[currentMaterial].ambient = [
+                parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])
+            ];
         } else if (parts[0] === 'Kd' && currentMaterial) {
             materials[currentMaterial].diffuse = [
-                parseFloat(parts[1]),
-                parseFloat(parts[2]),
-                parseFloat(parts[3]),
-                1.0
+                parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3]), 1.0
             ];
+        } else if (parts[0] === 'Ks' && currentMaterial) {
+            materials[currentMaterial].specular = [
+                parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])
+            ];
+        } else if (parts[0] === 'Ns' && currentMaterial) {
+            materials[currentMaterial].shininess = parseFloat(parts[1]);
         }
     }
     return materials;
 }
+
 
 
 function buildRay(mouseX, mouseY, canvas, inverseVP) {

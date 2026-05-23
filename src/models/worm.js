@@ -2,7 +2,9 @@
 
 const wormVertexShaderSource = `
     attribute vec4 a_position;
-    attribute vec4 a_color;
+    attribute vec4 a_diffuse;
+    attribute vec3 a_specular;
+    attribute float a_shininess;
     attribute vec3 a_normal;
 
     uniform mat4 u_matrix;
@@ -15,9 +17,11 @@ const wormVertexShaderSource = `
     uniform float u_bodyMin; //body positions to normalize movement over body
     uniform float u_bodyMax;
 
-    varying vec4 v_color; //color to send to fragment
+    varying vec4 v_diffuse; //color to send to fragment
     varying vec3 v_normal;
     varying vec3 v_worldPos; //direction from surface to camera (specular effect)
+    varying vec3 v_specular;
+    varying float v_shininess;
 
     void main() {
         float s = (a_position.z - u_bodyMin) / (u_bodyMax - u_bodyMin); //normalize the y  in [0,1] 0=head, 1=tail
@@ -25,18 +29,22 @@ const wormVertexShaderSource = `
         vec4 deformed = vec4(a_position.x + wave, a_position.y, a_position.z, 1.0);
 
         gl_Position = u_matrix * deformed; //multiply all vertex before sending to screen
-        v_color = a_color;
+        v_diffuse = a_diffuse;
         v_normal = mat3(u_modelMatrix) * a_normal; //take only 3x3 matrix to not include translations
         v_worldPos = (u_modelMatrix * deformed).xyz; //xyz only takes first 3 coordinates
+        v_specular = a_specular;
+        v_shininess = a_shininess;
     }
 `;
 
 const wormFragmentShaderSource = `
     precision mediump float;
     
-    varying vec4 v_color;
+    varying vec4 v_diffuse;
     varying vec3 v_normal;
     varying vec3 v_worldPos;
+    varying vec3 v_specular;
+    varying float v_shininess;
 
     uniform vec3 u_lightPositions[4]; //4 lights, one each angle
     uniform float u_lightIntensities[4];
@@ -48,6 +56,9 @@ const wormFragmentShaderSource = `
     uniform float u_shadowAlpha;
 
     void main() {
+
+        float Ka = 0.4;
+
         if (u_isShadow > 0.5) {
             gl_FragColor = vec4(0.0, 0.0, 0.0, u_shadowAlpha);
             return;
@@ -61,28 +72,21 @@ const wormFragmentShaderSource = `
         vec3 normal = normalize(v_normal); //normalize because it might not be unitary after interpolation
         vec3 viewDir = normalize(u_viewPosition - v_worldPos); //surface towards camera
 
-        //ambient
-        float ambientStrength = 0.4;
-        vec3 ambient = ambientStrength * v_color.rgb;
-
-        float specularStrength = 0.2;
+        vec3 result = Ka * v_diffuse.rgb; // ambient
 
         for (int i = 0; i < 4; i++) {
             vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos); //surface towards light direction
-
-            //diffuse
-            float diff = max(dot(normal, lightDir), 0.0); //how much surface is towards the light (avoid negative, in shadow)
-            vec3 diffuse = diff * v_color.rgb * u_lightIntensities[i];
-
-            //specular
             vec3 reflectDir = reflect(-lightDir, normal);
-            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0); //reflected ray (higher the ray, lower the reflection) (avoid negative)
-            vec3 specular = specularStrength * spec * vec3(1.0, 1.0, 1.0) * u_lightIntensities[i] * u_advanced; //white reflection (1,1,1) if aligned to camera
 
-            ambient += diffuse + specular;
+            float diff = max(dot(normal, lightDir), 0.0); //how much surface is towards the light (avoid negative, in shadow)
+            vec3 diffuse = diff * v_diffuse.rgb * u_lightIntensities[i]; // diffuse
+
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), v_shininess);
+            vec3 specular = spec * v_specular * u_lightIntensities[i] * u_advanced; // specular
+            result += diffuse + specular;
         }
     
-        gl_FragColor = vec4(ambient, 1.0);
+        gl_FragColor = vec4(result, 1.0);
     }
 `;
 
@@ -136,10 +140,21 @@ function initWorm(gl, objData) {
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, objData.positions, gl.STATIC_DRAW);
 
-    //TEXTURE APPLICATION
-    const colorBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, objData.colors, gl.STATIC_DRAW);
+    //DIFFUSE COLOR BUFFER
+    const diffuseBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, diffuseBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, objData.diffuse, gl.STATIC_DRAW);
+
+    //SPECULAR COLOR BUFFER
+    const specularBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, specularBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, objData.specular, gl.STATIC_DRAW);
+
+    //SHININESS BUFFER
+    const shininessBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, shininessBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, objData.shininess, gl.STATIC_DRAW);
+
 
     //NORMALS VECTORS
     const normalBuffer = gl.createBuffer();
@@ -161,7 +176,9 @@ function initWorm(gl, objData) {
     return {
         programInfo,
         positionBuffer,
-        colorBuffer,
+        diffuseBuffer,
+        specularBuffer,
+        shininessBuffer,
         normalBuffer,
         vertexCount: objData.vertexCount,
         bodyMin,
@@ -439,8 +456,10 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
 
     webglUtils.setAttributes(worm.programInfo, {
         a_position: { buffer: worm.positionBuffer, numComponents: 3},
-        a_color: { buffer: worm.colorBuffer, numComponents: 4 },
-        a_normal: { buffer: worm.normalBuffer, numComponents: 3}
+        a_diffuse: { buffer: worm.diffuseBuffer, numComponents: 4 },
+        a_normal: { buffer: worm.normalBuffer, numComponents: 3},
+        a_specular: { buffer: worm.specularBuffer,  numComponents: 3 },
+        a_shininess: { buffer: worm.shininessBuffer, numComponents: 1 },
     });
 
     //MODEL MATRIX BUILDING

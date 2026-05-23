@@ -34,33 +34,39 @@ const planeFragmentShaderSource = `
     uniform float u_advanced;
 
     void main() {
-        vec3 color = texture2D(u_texture, v_texCoord).rgb;
 
+        //GROUND MATERIAL CONFIGURATION
+        float Ka = 0.1;
+        float Kd = 0.8;
+        float Ks = 0.02;
+        float shininess = 8.0;
+        vec3 specularColor = vec3(0.04, 0.04, 0.04);
+
+        vec3 color = texture2D(u_texture, v_texCoord).rgb;
         vec3 normal = normalize(v_normal);
         vec3 viewDir = normalize(u_viewPosition - v_worldPos);
 
-        //ambient light calculated one time
-        float ambientStrength = 0.05;
-        vec3 ambient = ambientStrength * color;
-
-        float specularStrength = 0.005;
+        vec3 result = Ka * color;
 
         for (int i = 0; i < 4; i++) { 
             vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos);
+            vec3 reflectDir = reflect(-lightDir, normal);
+
+            float dist = length(u_lightPositions[i] - v_worldPos);
+            float att = 1.0 / (1.0 + 0.02 * dist + 0.003 * dist * dist);
 
             //diffuse light
             float diff = max(dot(normal, lightDir), 0.0);
-            vec3 diffuse = diff * color * u_lightIntensities[i];
+            vec3 diffuse = Kd * diff * color * u_lightIntensities[i] * att;
 
             //specular light
-            vec3 reflectDir = reflect(-lightDir, normal);
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), 8.0);
-            vec3 specular = specularStrength * spec * vec3(1.0) * u_lightIntensities[i] * u_advanced;
+            vec3 specular = Ks * spec * specularColor * u_lightIntensities[i] * att * u_advanced;
 
-            ambient += diffuse + specular;
+            result += diffuse + specular;
         }
 
-        gl_FragColor = vec4(ambient, 1.0);
+        gl_FragColor = vec4(result, 1.0);
     }
 `;
 
