@@ -1,0 +1,153 @@
+:root {
+    --text:    #1a1a1a;
+    --muted:   #555;
+    --border:  #ddd;
+    --bg-code: #f6f6f6;
+    --accent:  #1a1a1a;
+}
+
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+}
+
+body {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 16px;
+    line-height: 1.7;
+    color: var(--text);
+    background: #fff;
+    padding: 2rem 1rem;
+}
+
+.container {
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+header {
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+header h1 {
+    font-size: 2rem;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+}
+header p { 
+    color: var(--muted); 
+    font-size: 0.95rem; 
+}
+
+h2 {
+    font-size: 1.4rem;
+    color: var(--accent);
+    margin-top: 3rem;
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--border);
+}
+
+h3 {
+    font-size: 1.1rem;
+    margin-top: 1.8rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+h4 {
+    font-size: 1rem;
+    margin-top: 1.2rem;
+    margin-bottom: 0.3rem;
+    color: #444;
+    font-style: italic;
+}
+
+p  { 
+    margin-bottom: 0.9rem; 
+}
+ul, ol { 
+    margin: 0.6rem 0 0.9rem 1.6rem; 
+}
+li { 
+    margin-bottom: 0.3rem; 
+}
+
+code {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.88em;
+    background: var(--bg-code);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+}
+pre {
+    background: var(--bg-code);
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1rem 0 1.2rem;
+    border-radius: 0 4px 4px 0;
+}
+pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.85em;
+    line-height: 1.5;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 1.2rem;
+    font-size: 0.9rem;
+}
+th {
+    background: var(--accent);
+    color: #fff;
+    text-align: left;
+    padding: 0.45rem 0.7rem;
+}
+td {
+    padding: 0.4rem 0.7rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+tr:nth-child(even) td { 
+    background: #fafafa; 
+}
+
+.katex-display { 
+    margin: 1rem 0; 
+    overflow-x: auto; 
+}
+
+.note {
+    background: #f0f7ff;
+    border-left: 3px solid var(--accent);
+    padding: 0.7rem 1rem;
+    margin: 1rem 0;
+    font-size: 0.92rem;
+    color: #333;
+}
+
+nav ol { 
+    margin-left: 1.2rem; 
+}
+nav li { 
+    margin-bottom: 0.2rem; 
+}
+nav a  { 
+    color: var(--accent); 
+    text-decoration: none; 
+}
+nav a:hover { 
+    text-decoration: underline; 
+}
+
+hr { 
+    border: none; 
+    border-top: 1px solid var(--border); 
+    margin: 2.5rem 0; 
+}

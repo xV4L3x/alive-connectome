@@ -82,7 +82,7 @@ const wormFragmentShaderSource = `
 
         for (int i = 0; i < 4; i++) {
             vec3 lightDir = normalize(u_lightPositions[i] - v_worldPos); //surface towards light direction
-            float spotCos = dot(-lightDir, normalize(u_lightDirections[i])); //angle between light->face and light->origin
+            float spotCos = dot(-lightDir, normalize(u_lightDirections[i])); //angle between light->face and light pointing direction
             if (spotCos < u_lightConeAngle) continue;
 
             vec3 reflectDir = reflect(-lightDir, normal);
@@ -104,7 +104,9 @@ const wormFragmentShaderSource = `
 `;
 
 const MAX_SPEED = 3.0; //units per second
-const FRICTION = 2.0; //how fast worm adapts to speed
+const SPEED_FRICTION = 2.0; //how fast worm adapts to speed
+const DIRECTION_FRICTION = 5.0;
+const FREQUENCY_FRICTION = 3.0;
 const TURN_SPEED = 0.5;
 const WORM_SCALE = 0.3;
 
@@ -269,7 +271,7 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     wormInstance.connectome.step(deltaTime);
 
     const { amplitude, freqTime } = wormInstance.connectome.getWaveParams();
-    wormInstance.freqTimeSmooth += (freqTime * WAVE_FREQUENCY_MULTIPLIER - wormInstance.freqTimeSmooth) * 3.0 * deltaTime;
+    wormInstance.freqTimeSmooth += (freqTime * WAVE_FREQUENCY_MULTIPLIER - wormInstance.freqTimeSmooth) * FREQUENCY_FRICTION * deltaTime;
 
     const c = wormInstance.connectome;
     const forwardDrive  = (c.getNeuronActivity('AVBL') + c.getNeuronActivity('AVBR') +
@@ -288,12 +290,12 @@ function updateWorm(wormInstance, deltaTime, stimuli, foods) {
     const hungerDrive = wormInstance.hunger > 0.5 ? (wormInstance.hunger - 0.5) * 2 : 0;
     const driveDiff = (forwardDrive + touchForward + hungerDrive * HUNGER_FORWARD_STRENGTH) - (backwardDrive + touchBackward);
     const rawDirection = driveDiff >= -DIRECTION_DEADBAND ? 1 : -1;
-    wormInstance.directionSmooth += (rawDirection - wormInstance.directionSmooth) * 5.0 * deltaTime;
+    wormInstance.directionSmooth += (rawDirection - wormInstance.directionSmooth) * DIRECTION_FRICTION * deltaTime;
     const direction = Math.sign(wormInstance.directionSmooth);
 
 
     const targetSpeed = amplitude * MAX_SPEED * direction;
-    wormInstance.speed += (targetSpeed - wormInstance.speed) * FRICTION * deltaTime;
+    wormInstance.speed += (targetSpeed - wormInstance.speed) * SPEED_FRICTION * deltaTime;
 
     // pirouette and heading 
     if (wormInstance.reversalTimer > 0) {

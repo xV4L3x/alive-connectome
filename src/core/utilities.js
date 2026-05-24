@@ -109,7 +109,7 @@ function parseMTL(text) {
 
 function buildRay(mouseX, mouseY, canvas, inverseVP) {
     //convert to ndc coordinates [-1,1]
-    const ndcX = (mouseX / canvas.clientWidth)  * 2 - 1;
+    const ndcX = (mouseX / canvas.clientWidth) * 2 - 1;
     const ndcY = -(mouseY / canvas.clientHeight) * 2 + 1; //invert Y the values of the canvas grow towards bottom
 
     //inverse transofrmation of world -> NDC. (UN)PROJECTION
@@ -136,6 +136,7 @@ function buildRay(mouseX, mouseY, canvas, inverseVP) {
 }
 
 function raySphereIntersect(ray, center, radius) {
+    //vector from shpere center to ray origin
     const ox = ray.origin[0] - center[0];
     const oy = ray.origin[1] - center[1];
     const oz = ray.origin[2] - center[2];

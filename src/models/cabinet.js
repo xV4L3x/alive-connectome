@@ -67,8 +67,8 @@ const cabinetFragmentShaderSource = `
         }
 
         // fresnel solo nelle zone metalliche
-        float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 4.0);
-        result += fresnel * steelColor * metalness * 0.5 * u_advanced;
+        float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 4.0) * 0.5;
+        result += fresnel * steelColor * metalness * u_advanced;
 
         gl_FragColor = vec4(result, 1.0);
     }

@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alive Connectome — Relazione di Progetto</title>
+
+  <!-- KaTeX per le formule LaTeX -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {
+      delimiters: [
+        {left: '$$', right: '$$', display: true},
+        {left: '$', right: '$',   display: false}
+      ],
+      throwOnError: false
+    });"></script>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Alive Connectome</h1>
+  <p>Relazione di Progetto — Corso di Computer Graphics<br>
+     Laurea Magistrale in Informatica, Università di Bologna — A.A. 2025/26<br>
+     Valerio Pio De Nicola — valeriopio.denicola@studio.unibo.it — 0001170425</p>
+</header>
+
+<section id="descrizione">
+  <h2>1. Descrizione dell'Applicazione</h2>
+
+  <p><strong>Alive Connectome</strong> è un ecosistema virtuale interattivo in cui vivono esemplari del nematode <em>Caenorhabditis elegans</em>. Il progetto è strutturato in modo che il comportamento motorio di ogni verme sia interamente guidato da una simulazione della sua rete sinaptica reale, tratta dal dataset pubblico di <a href="https://openworm.org">OpenWorm</a>.</p>
+
+  <p>La scena rappresenta un angolo di un laboratorio scientifico: una teca di vetro, illuminata da quattro faretti, su un bancone metallico in una stanza scarsamente illuminata. All'interno della teca i vermi si muovono autonomamente, reagendo a stimoli come l'intensità della luce e la presenza di colonie batteriche (il loro cibo). L'utente può:</p>
+  
+  <ul>
+    <li>Ruotare liberamente la telecamera intorno alla scena (controlli mouse e touch);</li>
+    <li>Regolare l'intensità dei quattro faretti indipendenti tramite il pannello GUI;</li>
+    <li>Spawnare nuovi vermi e nuovi oggetti cibo;</li>
+    <li>Selezionare un singolo verme con il mouse per osservarne l'attività neurale in tempo reale;</li>
+    <li>Prendere il controllo manuale del verme selezionato con un thumbstick (touch) o con i tasti WASD (Override delle sinapsi);</li>
+    <li>Attivare/disattivare il rendering avanzato (ombre planari + trasparenza).</li>
+  </ul>
+</section>
+
+<section id="pipeline">
+<h2>2. Pipeline WebGL e Trasformazioni MVP</h2>
+
+<h3>2.1 Inizializzazione e Loop di Rendering</h3>
+
+<p>Al caricamento della pagina, dopo aver recuperato il contesto di WebGL, vengono caricati in parallelo i 3 file principali del progetto:</p>
+<ul>
+  <li><code>worm-cuticle.obj</code>: mesh 3D del C.Elegans</li>
+  <li><code>worm-cuticle.mtl</code>: file di istruzioni sui materiali usati dalla mesh 3D</li>
+  <li><code>herm_full_edgelist.csv</code>dataset delle connessioni neurali</li>
+</ul>
+
+<p>La funzione di `render` esegue ogni volta un aggiornamento della simulazione, passando prima per il connectome, che darà in output i parametri per aggiornare la configurazione fisica del verme. Successivamente eseguito il rendering degli oggetti ordinato in base alla loro trasparenza </p>
+<ul>
+  <li><strong>Opachi</strong>: Stanza, Badge, Bancone, Piano, Faretti, Vermi</li>
+  <li><strong>Trasparenti</strong>: Cibo, Teca</li>
+</ul>
+
+<p>Il depth test è abilitato globalmente per ottimizzare le performance, ma gli oggetti trasparenti disabilitano il depth write (<code>gl.depthMask(false)</code>) prima del draw per evitare di nascondere gli oggetti che visivamente stanno dietro di loro.</p>
+
+<h3>2.2 Trasformazione MVP</h3>
+
+<p>Per ogni vertice, la posizione nel Clip Space si ottiene dalla composizione di tre matrici:</p>
+
+$$\mathbf{p}_{clip} = \mathbf{P} \cdot \mathbf{V} \cdot \mathbf{M} \cdot \mathbf{p}_{model}$$
+
+<ul>
+  <li>$\mathbf{M}$ (<strong>Model Matrix</strong>): trasforma da spazio modello a spazio mondo (posizione, rotazione, scala dell'oggetto).</li>
+  <li>$\mathbf{V}$ (<strong>View Matrix</strong>): trasforma da spazio mondo a spazio camera; è l'<em>inversa</em> della <code>lookAt(eye, target, up)</code>.</li>
+  <li>$\mathbf{P}$ (<strong>Projection Matrix</strong>): trasforma da spazio camera a coordinate clip applicando la prospettiva.</li>
+</ul>
+
+<pre><code>// src/main.js
+const projectionMatrix   = m4.perspective(Math.PI / 4, aspect, 0.1, 1000.0);
+const viewMatrix         = m4.inverse(m4.lookAt(eye, lookTarget, [0, 1, 0]));
+const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);</code></pre>
+
+<p>La <strong>view-projection matrix</strong> viene calcolata una sola volta per frame e
+moltiplicata per la model matrix specifica di ogni oggetto, evitando di ricalcolare
+$\mathbf{P}\mathbf{V}$ ad ogni draw call.</p>
+
+<h4>Model matrix del verme</h4>
+
+$$\mathbf{M} = \mathbf{Translation} \cdot \mathbf{Rotation} \cdot \mathbf{Scale}$$
+
+<pre><code>// src/models/worm.js
+const wormModelMatrix = m4.multiply(
+    m4.translation(px, (-worm.yMin * WORM_SCALE) + py, pz),
+    m4.multiply(
+        m4.yRotation(wormInstance.heading),
+        m4.scaling(WORM_SCALE, WORM_SCALE, WORM_SCALE)
+    )
+);</code></pre>
+
+<p>Le trasformazioni si applicano <strong>da destra verso sinistra</strong>: prima la scala (portando il modello Blender a dimensioni di scena), poi la rotazione attorno a Y secondo l'<code>heading</code>, poi la traslazione. Il termine $-y_{min}$ scalato, nella traslazione Y, garantisce che il punto più basso del modello tocchi esattamente $Y = 0$ (il piano del terreno), indipendentemente dalla geometria dell'OBJ caricato.</p>
+
+<p>Nel vertex shader vengono passate sia la MVP completa (per <code>gl_Position</code>) sia la
+sola $\mathbf{M}$ (per trasformare posizioni e normali in world space durante i calcoli di
+illuminazione Phong).</p>
+
+<h3>2.3 Compilazione degli Shader</h3>
+
+<p>Ogni oggetto ha la propria coppia vertex/fragment shader, definita come stringa JavaScript nello stesso file. La compilazione usa la funzione <code>createProgramInfo</code> della libreria <code>webgl-utils.js</code>, che compila i due shader, li collega in un programma e restituisce un oggetto contenente il programma e le location di tutti gli attributi e uniform. Il passaggio dei valori al Fragment Shader avviene poi tramite le funzioni <code>setAttributes</code> e <code>setUniforms</code> della stessa libreria.</p>
+
+<h3>2.4 Parser OBJ/MTL</h3>
+
+<p>Il parser dei file <code>.obj</code> e <code>.mtl</code> è implementato a partire dalla guida <a href="https://webglfundamentals.org/webgl/lessons/webgl-load-obj.html">https://webglfundamentals.org/webgl/lessons/webgl-load-obj.html</a> in <code>src/core/utilities.js</code>. Il codice è stato successivamente modificato per essere in grado di leggere anche i materiali definiti nel file di supporto, per associarli ai relativi vettori. È stato dunque necessario implementare anche un parser per i file <code>.mtl</code> indipendente.</p>
+
+<p>Dal file MTL vengono estratte le quattro proprietà ottiche di ciascun materiale:</p>
+
+<table>
+  <tr><th>Keyword MTL</th><th>Significato</th><th>Attributo vertex</th></tr>
+  <tr><td><code>Ka r g b</code></td><td>Colore ambientale</td><td>Sovrascritto</td></tr>
+  <tr><td><code>Kd r g b</code></td><td>Colore diffuso</td><td><code>a_diffuse</code> (vec4)</td></tr>
+  <tr><td><code>Ks r g b</code></td><td>Colore speculare</td><td><code>a_specular</code> (vec3)</td></tr>
+  <tr><td><code>Ns e</code></td><td>Esponente lucidità (shininess)</td><td><code>a_shininess</code> (float)</td></tr>
+</table>
+
+<p>I valori Kd, Ks e Ns vengono copiati per ogni vertice come attributi separati, in modo che il fragment shader riceva i parametri reali del materiale. Il termine Ka viene inserito come costante nello shader (0.4 per il verme), il valore è stato sovrascritto rispetto a come viene definito nel file MTL, perché legge come Ka il colore (1.0, 1.0, 1.0), che avrebbe reso il modello completamente bianco. Questo permette al modello del verme di avere colori e riflettività diversi per le diverse zone anatomiche (pelle, parti interne, ecc.).</p>
+
+<p>La bounding box del modello viene calcolata durante il parsing per determinare <code>u_bodyMin</code> e <code>u_bodyMax</code>, necessari per normalizzare il parametro di posizione sul corpo nello shader di animazione.</p>
+
+<section id="phong">
+<h2>3. Modello di Illuminazione Phong</h2>
+
+<h3>3.1 Teoria</h3>
+
+<p>Il modello di Phong calcola il colore di ogni fragment come somma di tre contributi:</p>
+
+$$I = I_a + I_d + I_s$$
+
+<ul>
+  <li>$I_a$ — <strong>Ambient</strong>: luce ambientale costante, simula l'illuminazione
+      indirettamente diffusa nell'ambiente.</li>
+  <li>$I_d$ — <strong>Diffuse</strong> (Lambert): dipende dall'angolo tra la normale della
+      superficie e la direzione verso la sorgente.</li>
+  <li>$I_s$ — <strong>Specular</strong>: riflesso lucido, dipende dall'allineamento tra il
+      raggio riflesso e la direzione verso la camera.</li>
+</ul>
+
+<p>Nella scena ci sono 4 <strong>Spotlights</strong> (i faretti agli angoli della teca). Ogni sorgente ha una posizione, una direzione e un angolo di cono. Il contributo diffuse e specular viene accumulato in un ciclo sulle 4 luci, scartando i fragment fuori dal cono prima del calcolo.</p>
+
+<h3>3.2 Implementazione GLSL (fragment shader del verme)</h3>
+
+<p>Il vertex shader trasferisce al fragment shader i tre varying ottenuti dagli attributi per-vertice
+estratti dal MTL: <code>v_diffuse</code> (Kd, vec4), <code>v_specular</code> (Ks, vec3),
+<code>v_shininess</code> (Ns, float).</p>
+
+<p>Prima di iterare sulle 4 luci si calcolano i vettori indipendenti dalla sorgente:</p>
+
+$$\hat{\mathbf{n}} = \frac{\mathbf{n}}{|\mathbf{n}|}$$
+
+<p>La normale che arriva al fragment shader è passata per un prodotto matriciale che non produce vettori unitati, quindi è necessario normalizzarla.</p>
+
+$$\hat{\mathbf{v}} = \frac{\mathbf{eye} - \mathbf{p}}{|\mathbf{eye} - \mathbf{p}|}$$
+
+<p>Calcoliamo ache la direzione dal punto alla telecamera, utile per il calcolo dei riflessi. Anche questa viene normalizzata.</p>
+
+<p><strong>Ambient</strong> (una sola volta, fuori dal loop delle luci):</p>
+
+$$I_a = K_a \cdot K_d$$
+
+<p>Solo per questo modello l'ambient viene calcolato partendo dal colore diffuse, che viene utilizzato dunque come colore primario.</p>
+
+<p><strong>Spot light — selezione del cono</strong>:</p>
+
+<p>Qui siamo già nel ciclo delle luci, quindi per ogni faretto, andiamo a calcolare innanzitutto la direzione dal punto alla sorgente luminosa:</p>
+  
+$$\hat{pl_i} = \frac{l_i - \mathbf{p}}{|l_i - \mathbf{p}|}$$
+
+<p>Per ogni luce $i$ è necessario verificare se il fragment ricade nel cono illuminato. Per farlo abbiamo bisogno di $\hat{d}_i$, che rappresenta la direzione normalizzata della luce (precalcolata in <code>lights.js</code>) e della soglia di illuminazione del cono $\varphi_{max}$, fissata a $45°$</p>
+
+<p>Procediamo dunque a calcolare la distanza angolare tra il vettore che rappresenta la direzione dalla luce al punto (inverso di $\hat{pl_i}$) ed il vettore che rappresenta la direzione del faretto:</p>
+
+$$\cos(\varphi) = (-\hat{pl}_i) \cdot \hat{d}_i$$
+
+<p>Se $\cos(\varphi) \lt \cos(\varphi_{max})$ allora il punto è fuori dalla zona illuminata dal cono e possiamo saltarlo nel calcolo dell'illuminazione di quel cono.</p>
+
+<pre><code>for (int i = 0; i &lt; 4; i++) {
+    ...
+    if (spotCos &lt; u_lightConeAngle) continue;
+    ...
+}</code></pre>
+
+<p>Un'altra operazione che viene effettuata per garantire una resa più naturale della luce è la sfumatura dei bordi del cono luminoso, per farlo viene utilizzata la funzione built-in <code>smoothstep</code>:</p>
+<pre><code>float spotFactor = smoothstep(u_lightConeAngle, u_lightConeAngle + 0.1, spotCos);</code></pre>
+<p>La funzione funziona in questo modo:</p>
+<ul>
+  <li>Se $\cos(\varphi) \le \cos(\varphi_{max})$ allora restituisce $0$ (ombra)</li>
+  <li>Se $\cos(\varphi) \ge \cos(\varphi_{max}) + 0.1$ allora restituisce $1$ (completamente illuminato)</li>
+  <li>Se $\cos(\varphi_{max}) \lt \cos(\varphi) \lt \cos(\varphi_{max}) + 0.1$ allora il valore viene interpolato con una sigmoide per dare un effetto di transizione liscia (parzialmente illuminato)</li>
+</ul>
+
+<p><strong>Attenuazione quadratica</strong>:</p>
+
+<p>Per poter diminuire la luminosità di un oggetto anche in base alla sua lontananza dalla luce, è stato necessario calcolare un fattore di attenuazione basato dunque sulla distanza tra il fragment e la sorgente luminosa.</p>
+
+<p>Iniziamo calcolando la distanza $d$ tra il punto $p$ e la sorgente $l$:</p>
+
+$$d = \|\mathbf{p} - \mathbf{l}\|$$
+
+<p>Questa distanza viene poi usata per calcolare il fattore di attenuazione quadratica:</p>
+
+$$a(d) = \frac{1}{k_C + k_L \cdot d + k_Q \cdot d^2}$$
+
+<p>dove:</p>
+<ul>
+  <li>$k_C$ <strong>(Attenuazione costante)</strong>: serve a garantire che quando la distanza $d$ è zero (cioè il punto è esattamente sopra la luce), il denominatore non diventi zero</li>
+  <li>$k_L$ <strong>(Attenuazione lineare)</strong>: viene moltiplicata per la distanza, controlla il decadimento costante dell'intensità</li>
+  <li>$k_Q$ <strong>(Attenuazione quadratica)</strong>: moltiplica la distanza al quadrato, facendo svanire la luce più rapidamente nelle lunghe distanze</li>
+</ul>
+
+<pre><code>float att  = 1.0 / (1.0 + 0.02 * dist + 0.003 * dist * dist);</code></pre>
+
+<p><strong>Diffuse</strong> (legge di Lambert):</p>
+
+<p>Ora che abbiamo tutti i componenti necessari, possiamo iniziare a calcolare la luce diffusa. Cominciamo quindi calcolando l'angolo tra la normale del frammento ed il vettore che rappresenta la direzione dal frammento alla luce:</p>
+
+$$cos(\theta) = \hat{n} \cdot \hat{pl}$$
+
+<p>Viene fatto un clamping a $[0,1]$ per evitare valori negativi, che vengono portati a zero. Procediamo dunque a calcolare il fattore diffuso in questo modo:</p>
+
+$$I_{d,i} = cos(\theta) \cdot K_d \cdot I_i \cdot \text{spotFactor} \cdot a(d)$$
+
+<pre><code>float diff = max(dot(normal, lightDir), 0.0);
+vec3 diffuse = diff * v_diffuse.rgb * u_lightIntensities[i] * spotFactor * att;</code></pre>
+
+<p><strong>Specular</strong>:</p>
+
+<p>Per calcolare la luce riflessa, abbiamo bisogno di calcolare innanzitutto il raggio di riflesso della luce rispetto alla normale, per farlo, utilizziamo la built-in <code>reflect</code> di GLSL:</p>
+$$\mathbf{r} = \mathrm{reflect}(-l,\ n)$$
+
+<p>Successivamente possiamo calcolare la distanza angolare tra il raggio riflesso e il vettore che rappresenta la direzione dal fragment alla telecamera. Questa distanzia viene poi elevata per un fattore di <strong>shininess</strong> $N_s$:</p>
+
+$$\cos(\theta) = \hat{r} \cdot \hat{v}$$
+
+<p>Anche qui va normalizzato il vettore di riflesso per il calcolo del prodotto scalare.</p>
+
+$$I_{s,i} = K_s \cdot \cos(\theta)^{N_s} \cdot I_i \cdot \text{spotFactor} \cdot a(d)$$
+
+<pre><code>float spec = pow(max(dot(viewDir, reflectDir), 0.0), v_shininess);
+vec3 specular = spec * v_specular * u_lightIntensities[i] * u_advanced * spotFactor * att;
+</code></pre>
+
+<p><code>u_advanced</code> è un flag (0.0 o 1.0) controllato dal toggle "Advanced Rendering" nella
+GUI, serve per disabilitare i riflessi per ottenere un'esperienza più fluida</p>
+
+<h3>3.3 Variazioni per Oggetto</h3>
+
+<p>Non tutti gli oggetti usano gli stessi parametri lo stesso shader. Le differenze principali:</p>
+
+<table>
+  <tr>
+    <th>Modello</th>
+    <th>$K_a$</th>
+    <th>$K_d$</th>
+    <th>$K_s$</th>
+    <th>$N_s$</th>
+    <th>Attenuazione</th>
+    <th>Spot light</th>
+  </tr>
+  <tr><td>Verme</td><td>0.40</td><td>da MTL</td><td>da MTL</td><td>da MTL</td><td>Sì</td><td>Sì</td></tr>
+  <tr><td>Piano terreno</td><td>0.10</td><td>0.80</td><td>0.02</td><td>8</td><td>Sì</td><td>Sì</td></tr>
+  <tr><td>Stanza (pareti)</td><td>0.02</td><td>0.80</td><td>0.15</td><td>16</td><td>Sì</td><td>No</td></tr>
+  <tr><td>Stanza (pavimento)</td><td>0.02</td><td>0.60</td><td>0.50</td><td>128</td><td>Sì</td><td>No</td></tr>
+  <tr><td>Bancone (cabinet)</td><td>mix(0.9,0.05,m)</td><td>0.0</td><td>mix(0,0.9,m)</td><td>64</td><td>Sì</td><td>No</td></tr>
+  <tr><td>Cibo</td><td>0.30</td><td>1.0</td><td>0.10</td><td>16</td><td>No</td><td>No</td></tr>
+  <tr><td>Badge</td><td>0.15</td><td>1.0</td><td>0.20</td><td>32</td><td>Sì</td><td>No</td></tr>
+</table>
+
+<h4>Metalness map e Fresnel (bancone)</h4>
+
+<p>Il bancone differentemente dagli altri modelli usa due texture distinte: una color map e una metalness map (grayscale). Il canale della metalness map scala continuamente i parametri Phong tra due estremi:</p>
+
+<pre><code>float Ka = mix(0.9, 0.05, metalness); // alta ruggine, bassa metallo
+float Ks = mix(0.0, 0.9, metalness);  // alta speculare solo per metallo</code></pre>
+
+<p>Essendo il bancone di metallo, è stato applicato anche un fattore di <strong>Fresnel</strong>, per simulare al meglio l'effetto di riflessione. Questo fattore aumenta la riflettività delle superfici in base all'angolo da cui si guardano. Per i metalli riflettenti guardati in modo quasi parallelo alla superficie, il fresnel la renderà riflettente come uno specchio.</p>
+
+<p>Essendo il calcolo del fresnel molto complesso computazionalmente, è stata applicata un'approssimazione chiamata <strong>Approssimazione di Schlick</strong>:</p>
+
+$$F \approx (1 - \cos\theta)^4, \quad \cos(\theta) = \hat{v} \cdot \hat{n}$$
+
+<p>La funzione si comporta come segue:</p>
+<ul>
+  <li>Guardando una faccia di fronte $\hat{v}$ e $\hat{n}$ sono paralleli (il coseno è $1$), di conseguenza $1 - 1 = 0$ $\rightarrow$ nessun riflesso extra</li>
+  <li>Guardando una faccia con un angolo radente (giusto visibile) $\hat{v}$ e $\hat{n}$ sono quasi perpendicolari (il coseno è quasi $0$), di conseguenza $1 - 0 = 1$ $\rightarrow$ riflesso totale</li>
+</ul>
+
+<pre><code>float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 4.0) * 0.5;
+result += fresnel * steelColor * metalness * 0.5 * u_advanced;</code></pre>
+
+</section>
+
+<section id="connectome">
+<h2>4. Simulazione del Connectome del <em>C. elegans</em></h2>
+
+<h3>4.1 Contesto Biologico</h3>
+
+<p>Il <em>Caenorhabditis elegans</em> è un nematode di circa 1 mm ampiamente utilizzato come
+organismo modello in biologia. È il primo organismo di cui si conosce completamente il
+<strong>connettoma</strong>: 302 neuroni e circa 7.000 sinapsi chimiche. Il progetto
+<a href="https://openworm.org">OpenWorm</a> ha reso pubblico il dataset completo nella forma
+ermafrodita.</p>
+
+<p>Il file <code>herm_full_edgelist.csv</code> contiene <strong>448 neuroni</strong> e
+<strong>7.378 sinapsi</strong> nel formato <code>Source, Target, Weight, Type</code>, dove:</p>
+<ul>
+  <li><strong>Source</strong> e <strong>Target</strong> rappresentano rispettivamente il neurone di partenza ed il neurone di arrivo della connessione</li>
+  <li><strong>Weight</strong> rappresenta la il numero di giunzioni sinaptiche (più alto = segnale più forte)</li>
+  <li><strong>Type</strong> rappresenta il tipo di connessione, che può essere <i>chimica</i> o <i>elettrica</i></li>
+</ul>
+
+<h3>4.2 Adjacency Map</h3>
+
+<p>La struttura centrale è la <code>sharedAdjacencyMap</code>: un dizionario
+<code>nome_neurone → [{target, weight}]</code>. Viene costruita una sola volta durante il parsing
+e condivisa in sola lettura da tutte le istanze dei vermi.</p>
+
+<p>Durante la costruzione viene applicata la gestione dei <strong>neuroni
+inibitori</strong>. Nel <em>C. elegans</em> i motoneuroni da DD01 a DD06 e da VD01 a VD13 sono
+<strong>GABAergici</strong>: rilasciano GABA che <em>scarica</em> i neuroni postsinaptici
+invece di eccitarli. Questi neuroni formano il circuito di inibizione reciproca tra muscoli
+dorsali e ventrali. Senza di questi, entrambi i lati si contrarrebbero insieme e non
+si produrrebbe alcuna onda locomotoria.</p>
+
+<h3>4.3 Loop di Simulazione</h3>
+
+<p>Ogni frame esegue quattro fasi in sequenza.</p>
+
+<p><strong>Fase 1 — Reset:</strong> a tutti i neuroni viene impostato il parametro <code>spiked</code> a <code>false</code>, che controlla se sono attivati oppure no.</p>
+
+<p><strong>Fase 2 — Iniezione degli stimoli:</strong> i neuroni di comando vengono sovrascritti
+direttamente ogni frame. Il circuito forward (AVBL, AVBR, PVCL, PVCR) riceve una baseline
+costante di 0.5 perché il verme esplori in avanti per default anche al buio. Il circuito
+backward (AVAL, AVAR, AVDL, AVDR) parte da 0.0 e riceve un contributo proporzionale alla luce:</p>
+
+<pre><code>for (const n of forwardNeurons)  neurons[n].activation = 0.5;
+for (const n of backwardNeurons) neurons[n].activation = stimuli.light * 1.5;</code></pre>
+
+<p>A <code>light = 0.33</code> il backward drive raggiunge $0.33 \times 1.5 \approx 0.5$,
+pareggiando il forward drive. Oltre questa soglia il verme inverte la marcia.</p>
+
+<p><strong>Fase 3 — Propagazione con leaky integrator:</strong> per ogni neurone sopra soglia
+($a > \text{TRESHOLD}$) si accumula l'input ai target tramite l'adjacency map:</p>
+
+$$\text{input}[j] \mathrel{+}= a_i \cdot w_{ij} \cdot s \quad \forall\,i : a_i > \text{TRESHOLD}$$
+
+con $s$ = <code>WEIGHT_SCALE</code> = 0.02 per normalizzare i pesi grezzi del CSV (range 1-142).
+Poi si applica il <strong>leaky integrator</strong> a tempo continuo su tutti i neuroni non di
+stimolo:</p>
+
+$$\Delta a_j = \frac{\Delta t}{\tau}\,(-a_j + \text{input}[j])$$
+
+<p>Questa formula rappresenta il modo natuale in cui l'attivazione $a$ di un neurone si aggiorna nel tempo, bilanciando la corrente ricevuta dalle sinapsi con una naturale perdita di energia. $\Delta t$ rappresenta la distanza temporale dell'ultimo aggiornamento, e viene diviso per $\tau$, che in biologia viene fissato a $0.1$, rappresentando la forza di inerzia del neurone nel passare energia. Se un neurone non riceve input decade a zero con costante di tempo $\tau = 0.1\,\text{s}$.</p>
+
+<p><strong>Fase 4 — Clamp:</strong> $a \leftarrow \text{clamp}(a, 0, 1)$. I pesi negativi dei
+neuroni GABAergici possono portare l'input sotto zero; il clamp li azzera.</p>
+
+<h3>4.4 Output Locomotorio</h3>
+
+<p>Dopo ogni step si leggono le attivazioni medie di tre gruppi di motoneuroni:</p>
+
+$$\text{forwardDrive} = mean(\text{AVBL} + \text{AVBR} + \text{PVCL} + \text{PVCR})$$
+
+$$\text{backwardDrive} = mean(\text{AVAL} + \text{AVAR} + \text{AVDL} + \text{AVDR} + \text{AVEL} + \text{AVER})$$
+
+$$\text{motorActivity} = mean(\text{DB01-DB07},\ \text{VB01-VB11},\ \text{DA01-DA09},\ \text{VA01-VA12})$$
+
+<p>Grazie ai valori medi delle attivazioni dei neuroni possiamo calcolare le variabili necessarie a produrre un'animazione di movimento del verme:</p>
+
+<pre><code>const direction = forwardDrive &gt;= backwardDrive ? 1 : -1;
+const amplitude = motorActivity;
+const freqTime  = direction * (0.5 + motorActivity * 2);</code></pre>
+
+<ul>
+  <li>
+    <strong>direction</strong>:
+    <ul>
+      <li>avanti ($+1$) se $\text{forwardDrive} \ge \text{backwardDrive}$</li>
+      <li>indietro ($-1$) se $\text{forwardDrive} \lt \text{backwardDrive}$</li>
+    </ul>
+  </li>
+  <li><strong>amplitude</strong> $\in [0,1]$: scala l'ampiezza visiva dell'onda, copia il valore di $\text{motorActivity}$.</li>
+  <li><strong>freqTime</strong> (velocità dell'onda): $\text{direction} \cdot (0.5 + \text{MotorActivity} \cdot 2)$ (il termine costante 0.5 garantisce movimento minimo anche con poca attività motoria).</li>
+</ul>
+
+<section id="animazione">
+<h2>5. Animazione del Corpo nel Vertex Shader</h2>
+
+<p>Il corpo del verme viene deformato direttamente nella GPU tramite un'onda sinusoidale
+viaggiante. L'asse del corpo del modello OBJ (esportato da Blender) è <strong>Z</strong>
+(testa verso $-Z$, coda verso $+Z$).</p>
+
+<h3>5.1 Posizione sul Corpo</h3>
+
+$$s = \frac{P.z - minZ}{maxZ - minZ}$$
+
+<p>$s$ normalizza la coordinata Z di ogni vertice nell'intervallo $[0, 1]$: 0 corrisponde alla
+testa, 1 alla coda. Funziona un po' come una percentuale di posizione di un punto sul corpo lungo l'asse Z</p>
+
+<h3>5.2 Onda Sinusoidale Viaggiante</h3>
+
+<p>L'animazione dell'onda avviene deformando le coordinate x dei punti secondo un'onda sinusoidale definita dai parametri passati dal connettoma:</p>
+
+$$\Delta x = A \cdot \sin(k \cdot s + \omega \cdot t)$$
+
+<table>
+  <tr><th>Variabile</th><th>Significato</th></tr>
+  <tr><td>$\mathbf{A}$</td><td>Ampiezza (altezza dell'onda)</td></tr>
+  <tr><td>$\mathbf{k}$</td><td>Frequenza spaziale (quante curve sul corpo del verme)</td></tr>
+  <tr><td>$\mathbf{\omega}$</td><td>Frequenza temporale (velocità di scorrimento dell'onda sinusoidale)</tr>
+  <tr><td>$\mathbf{t}$</td><td>Tempo che scorre (fase dell'onda)</td></tr>
+</table>
+
+<p>Il segno di $\omega$ determina anche la direzione dello spostamento dell'onda: se $\omega > 0$, l'onda si sposta da coda a testa (verme che avanza); se $\omega \lt 0$, l'onda si sposta da testa a coda (verme che arretra).</p>
+
+<h3>5.3 Low-Pass Filter su $\omega$</h3>
+
+<p>La frequenza temporale dal connectome può cambiare segno bruscamente in un singolo frame (ad esempio quando un verme urta una superficie), producendo un salto discontinuo nell'animazione. È stato applicato quindi un filtro low-pass:</p>
+
+$$f_{new} = \lambda_f \cdot (f_{target} - f_{old}), \quad \lambda_f = 3.0\,\text{s}^{-1}$$
+
+<p>Il filtro fa in modo che anche in caso di cambiamenti bruschi di frequenza, il verme possa raggiungere il target in maniera graduale. La costante di tempo $\tau = 1/\lambda = 0.33\,\text{s}$ garantisce che la transizione da avanti a indietro porti l'onda a rallentare, poi a fermarsi e poi a riprendere nell'altra direzione nel corso di circa un terzo di secondo.</p>
+</section>
+
+<section id="movimento">
+<h2>6. Fisica del Movimento e Comportamento</h2>
+
+<h3>6.1 Fisica della Velocità</h3>
+
+<p>La velocità è uno scalare aggiornato con un modello ad <strong>attrito</strong>:</p>
+
+$$v_{target} = A \cdot v_{max} \cdot d, \qquad v_{new} \mathrel{+}= (v_{target} - v_{old}) \cdot friction$$
+
+<pre><code>const targetSpeed = amplitude * MAX_SPEED * direction;
+wormInstance.speed += (targetSpeed - wormInstance.speed) * FRICTION * deltaTime;</code></pre>
+
+<p>Con $friction = 2.0$, la velocità raggiunge ~86% del target in 0.5 s: risposta rapida ma non
+istantanea. Il segno di <code>direction</code> inverte la velocità target per la retromarcia.</p>
+
+<h3>6.2 Fisica dello Spostamento</h3>
+<p>Il cambiamento di posizione del verme si aggiorna sul piano XZ e viene calcolato utilizzando l'angolo di direzione in cui sta guardando il verme:</p>
+$$Px \mathrel{+}= sin(heading) * speed, \qquad Pz \mathrel{+}= sin(heading) * speed$$
+<pre><code>wormInstance.position[0] += Math.sin(wormInstance.heading) * speed * deltaTime;
+wormInstance.position[2] += Math.cos(wormInstance.heading) * speed * deltaTime;</code></pre>
+
+<h3>6.3 Stabilizzazione della Direzione</h3>
+
+<p>La direzione non viene presa in maniera grezza dal connectome ma filtrata con una <strong>deadband</strong> ed un <strong>low-pass filter</strong>. La deadband evita inversioni continue causate da piccole oscillazioni del connectome:</p>
+
+<pre><code>const rawDirection = driveDiff &gt;= -DIRECTION_DEADBAND ? 1 : -1;</code></pre>
+
+<p>Il filtro low-pass invece rende il cambio di direzione graduale:</p>
+
+$$d_{new} \mathrel{+}= \lambda \cdot (d_{raw} - d_{smooth}), \quad \lambda = 5.0\,\text{s}^{-1}$$
+
+<pre><code>wormInstance.directionSmooth += (rawDirection - wormInstance.directionSmooth) * DIRECTION_FTICTION * deltaTime;
+const direction = Math.sign(wormInstance.directionSmooth);</code></pre>
+
+<h3>6.4 Strategia Run + Pirouette</h3>
+
+<p>Il <em>C. elegans</em> reale esplora con lunghi tratti dritti interrotti da rotazioni casuali
+(<em>pirouette</em>). Un timer per-istanza estratto casualmente ogni 3–8 secondi seleziona un
+nuovo heading target con scarto casuale di $\pm\pi/2$. La rotazione verso il target avviene
+gradualmente a velocità costante (<code>TURN_SPEED = 0.5</code> rad/s).</p>
+
+<h3>6.5 Omega Turn — Risposta alle Collisioni</h3>
+
+<p>Una semplice retromarcia dopo un urto frontale non basta: il verme tornerebbe contro la stessa
+parete. L'urto innesca una sequenza in due fasi:</p>
+
+<ol>
+  <li><strong>Scatto immediato</strong>: <code>directionSmooth = -1</code> (bypass del low-pass filter),
+      <code>speed = -MAX_SPEED</code> (bypass dell'attrito), avvio di un timer di retromarcia
+      pura di 1.2 s.</li>
+  <li><strong>Rotazione rapida</strong>: alla scadenza del timer viene scelto un nuovo heading con
+      scarto casuale tra 90° e 180°. Per 1.2 s la velocità di rotazione passa da
+      <code>TURN_SPEED = 0.5</code> rad/s a <code>OMEGA_TURN_SPEED = 2.5</code> rad/s —
+      la svolta rapida biologicamente caratteristica del <em>C. elegans</em>.</li>
+</ol>
+
+<h3>6.6 Chemotassi — Orientamento verso il Cibo</h3>
+
+<p>Quando la fame supera 0.5, il verme orienta gradualmente il proprio heading verso il cibo più
+vicino:</p>
+
+$$\text{angleToFood} = \mathrm{atan2}(\Delta x,\ \Delta z)$$
+
+<p>Viene utilizzata la funzione di arcotangente per calcolare l'angolo tra il cateto adiacente ($\Delta x$) e l'ipotenusa (segmento dal verme al cibo). Questo angolo rappresenta dunque la quantità di sterzata che è necessario fare per orientarsi al cibo. Usiamo la funzione $atan2$ invece di $atan(\frac{\Delta x}{\Delta z})$ per evitare divisioni per $0$ e conservare il segno dell'angolo.</p>
+
+<p>A questo punto andiamo ad influenzare l'angolo di direzione del verme, con un bias di influenza che cresce linearmente in base alla fame, sommandolo alla rotazione già presente senza sostituirla:</p>
+
+$$heading \mathrel{+}= \Delta angle \cdot bias$$
+
+<h3>6.7 Fotofobia — Fuga dalla Luce</h3>
+
+<p>In aggiunta al meccanismo neurale (luce → circuito backward), c'è un altro bias direzionale sull'heading che orienta il verme in modo che possa allontanarsi dalla sorgente luminosa:</p>
+
+$$angleToFlee= atan2(-\text{combinedLightDir}.x, -\text{combinedLightDir}.z)$$
+
+<pre><code>const lightDir = Lights.computeDirectionAt(wormInstance.position);
+const fleeAngle = Math.atan2(-lightDir[0], -lightDir[2]);  // direzione opposta
+wormInstance.heading += fleeDiff * localLight * LIGHT_FLEE_STRENGTH * lightFleeScale * deltaTime;</code></pre>
+
+<p>Introduciamo anche unaltro fattore di scala: <code>lightFleeScale</code>, che bilancia fotofobia e sopravvivenza:</p>
+
+$$\text{lightFleeScale} = 1 - \max(0,\ (\text{hunger} - 0.5) \cdot 2)$$
+
+<p>Un verme sull'orlo della morte per fame ignora completamente la luce per raggiungere il cibo.</p>
+
+<p>A questo punto possiamo calcolare il nuovo heading basandoci sui nuovi parametri:</p>
+
+$$heading \mathrel{+}= \Delta angle \cdot lightIntensity \cdot lightFleeScale $$
+
+<section id="avanzati">
+<h2>7. Rendering Avanzato: Ombre Planari e Trasparenza</h2>
+
+<h3>7.1 Ombre Planari (Blinn)</h3>
+
+<p>Le ombre dei vermi sul terreno sono implementate con la tecnica della <strong>planar shadow
+projection</strong>: senza shadow map, senza estensioni WebGL. Per ogni luce attiva, una matrice
+di proiezione schiaccia la geometria del verme sul piano $Y=0$ lungo la direzione della luce.</p>
+
+<p><strong>Derivazione della shadow matrix.</strong> Data una luce puntiforme $\mathbf{L} = (l_x, l_y, l_z)$ e un vertice del verme $\mathbf{V}$, è possibile determinare il punto ombra grazie alla tecnica di similarità dei triangoli. Per un piano con y=0 è possibile semplificare la formula di calcolo delle coordinate del punto, che sostituendo e moltiplicando per $l_y - v_y$ per evitare la divisione diventa:</p>
+
+$$S_x = l_y v_x - l_x v_y, \quad S_y = 0, \quad S_z = l_y v_z - l_z v_y, \quad w = l_y - v_y$$
+
+<p>Questo si codifica come matrice $4\times4$ in coordinate omogenee:</p>
+
+$$\begin{bmatrix}
+l_y & -l_x & 0 & 0\\
+0 & 0 & 0 & 0 \\
+0 & -l_z & l_y & 0 \\
+0 & -1 & 0 & l_y
+\end{bmatrix}$$
+
+<p>Per lo shadow pass si usa una <code>shadowModelMatrix</code> separata con scaling Y=0
+(schiacciato sul piano) e traslazione Y=0.1 (per evitare z-fighting con il piano).</p>
+
+<p>Il fragment shader della shadow pass emette nero con alpha proporzionale all'intensità della
+luce: con più luci attive le ombre si sovrappongono tramite alpha blending e si scuriscono nelle
+zone di sovrapposizione, comportamento fisicamente plausibile.</p>
+
+<h4>Ammorbidimento dei bordi dell'ombra</h4>
+
+<p>La proiezione planare produce un'ombra con bordi netti e geometricamente regolari, che
+tradisce l'assenza di una vera shadow map. Per renderla più naturale si usa un
+<strong>blur laterale basato sulla posizione X del vertice</strong> nel Model Space.</p>
+
+<p>Nel <strong>vertex shader</strong> si calcola un varying <code>v_blurFactor</code>:</p>
+
+<pre><code>v_blurFactor = smoothstep(0.0, 0.8, abs(a_position.x));</code></pre>
+
+<p>Il valore è $0$ al centro del corpo del verme ($x = 0$) e raggiunge 1 man mano che ci si
+avvicina ai bordi laterali ($|x| \geq 0.8$, in unità modello). La funzione
+<code>smoothstep</code> garantisce una transizione continua senza discontinuità.</p>
+
+<p>Nel <strong>fragment shader</strong> della shadow pass, <code>v_blurFactor</code> scala
+l'alpha dell'ombra verso zero ai bordi:</p>
+
+$$\alpha_{shadow} = u_{shadowAlpha} \cdot (1 - v_{blurFactor})$$
+
+<p>Il risultato è un'ombra densa al centro del corpo (dove la geometria è più compatta) e
+progressivamente trasparente ai lati, simulando la diffusione della penombra senza richiedere
+una shadow map o un filtro di post-processing.</p>
+
+<p>Per evitare lo <strong>z-fighting</strong> tra l'ombra (a $Y \approx 0$) e il terreno
+($Y = 0$) si usa <code>gl.polygonOffset(-1, -1)</code>, che sposta il depth dell'ombra
+leggermente verso la camera senza modificare la geometria visibile.</p>
+
+<h3>7.2 Trasparenza della Teca di Vetro</h3>
+
+<p>La teca è formata da 4 pareti (senza pavimento né soffitto) con alpha blending. Il fragment
+shader emette un colore ciano fisso con $\alpha = 0.10$:</p>
+
+<pre><code>gl_FragColor = vec4(0.8, 0.95, 1.0, 0.10);</code></pre>
+
+<p>In JavaScript si abilita il blending con la formula standard:</p>
+
+$$\text{output} = \alpha \cdot C_{src} + (1 - \alpha) \cdot C_{dst}$$
+
+<pre><code>gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+gl.depthMask(false);   // non scrive nel depth buffer</code></pre>
+
+<p><code>gl.depthMask(false)</code> impedisce alla teca di scrivere nel depth buffer: senza di
+esso, i vermi e il cibo renderizzati prima risulterebbero occultati dalla teca nel depth test del
+frame successivo, rendendo invisibile il contenuto della teca. La teca viene renderizzata
+<strong>per ultima</strong> nell'ordine di disegno, dopo tutti gli oggetti opachi.</p>
+</section>
+
+<section id="camera">
+<h2>8. Sistema Camera</h2>
+
+<h3>8.1 Camera Orbitale in Coordinate Sferiche</h3>
+
+<p>La camera predefinita orbita attorno a un punto target usando coordinate sferiche
+$(r, \theta, \phi)$. La conversione a coordinate cartesiane è:</p>
+
+$$x = r \cdot \cos\theta \cdot \sin\phi, \qquad y = r \cdot \sin\theta, \qquad z = r \cdot \cos\theta \cdot \cos\phi$$
+
+<pre><code>function computeEye(camera) {
+    const x = camera.distance * Math.cos(camera.elevation) * Math.sin(camera.azimuth);
+    const y = camera.distance * Math.sin(camera.elevation);
+    const z = camera.distance * Math.cos(camera.elevation) * Math.cos(camera.azimuth);
+    return [camera.target[0]+x, camera.target[1]+y, camera.target[2]+z];
+}</code></pre>
+
+<p>L'elevation è vincolata a $(-\pi/2 + 0.01,\ \pi/2 - 0.01)$ per evitare le
+<strong>singolarità ai poli</strong>
+
+<h4>Vincolo piano pavimento</h4>
+
+<p>La camera non può scendere sotto il pavimento della stanza. Il vincolo si ricava da
+$y_{eye} \geq -H_{cabinet} + \varepsilon$:</p>
+
+$$\theta_{min} = \arcsin\!\left(\text{clamp}\!\left(\frac{-H_{cabinet} + \varepsilon - t_y}{r},\ -1,\ 1\right)\right)$$
+
+<p>Il clamp in $[-1,1]$ è necessario perché $\arcsin$ è definita solo in quell'intervallo.
+Clampare $\theta$ invece della posizione Y preserva la distanza $r$ intatta.</p>
+
+<h3>8.2 Tre Modalità Camera</h3>
+
+<table>
+  <tr><th>Valore</th><th>Modalità</th><th>Descrizione</th></tr>
+  <tr><td>0</td><td>Free Camera</td><td>Vista orbitale predefinita, controlli mouse abilitati</td></tr>
+  <tr><td>1</td><td>Third Person</td><td>Camera 5 unità dietro e 3 sopra il verme selezionato</td></tr>
+  <tr><td>2</td><td>First Person</td><td>Camera agli occhi del verme, guarda nella direzione di marcia</td></tr>
+</table>
+
+<p>I controlli mouse/touch sono disabilitati nelle modalità 1 e 2</p>
+
+<h3>8.3 Gestione Touch</h3>
+
+<p>Un dito per l'orbita (azimuth + elevation), due dita per lo zoom (pinch). I listener usano
+<code>{ passive: false }</code> per poter chiamare <code>e.preventDefault()</code> e bloccare
+lo scroll nativo del browser.</p>
+</section>
+
+<section id="collisioni">
+<h2>9. Collisioni</h2>
+
+<p>Ogni collisione esegue due operazioni nello stesso frame:</p>
+<ol>
+  <li><strong>Separazione fisica immediata</strong>: sposta la geometria fuori dall'overlap.</li>
+  <li><strong>Risposta comportamentale</strong>: imposta i timer che modificano velocità e
+      heading nei frame successivi.</li>
+</ol>
+
+<h3>9.1 Verme-Muro</h3>
+
+<p>La teca forma un AABB (Axis-Aligned Bounding Box) con semilati <code>TANK_WIDTH = TANK_DEPTH = 8</code>. Ogni verme ha
+una hitbox sferica di raggio <code>WORM_WALL_RADIUS = 0.8</code>. Il clamp riporta la posizione
+al limite massimo accettato:</p>
+
+$$P_x = \pm w \pm radius, \qquad P_z = \pm d \pm radius$$
+
+<p>In caso di urto frontale (<code>direction &gt; 0</code>) avviene un'inversione immediata della direzione
+(bypassando il low-pass filter), facendo scattare il verme all'indietro a velocità massima e avviando la sequenza
+reversal+omega. In caso di urto in coda (<code>direction &lt; 0</code>): scatto in avanti senza
+omega turn.</p>
+
+<h3>9.2 Verme-Verme</h3>
+
+<p>Dopo che tutti i vermi sono stati aggiornati (e prima del rendering), si effettua il test a
+coppie. La distanza è calcolata solo nel piano XZ:</p>
+
+$$d = \sqrt{(\Delta x)^2 + (\Delta z)^2}$$
+
+<p>Se $d < r_A + r_B$ c'è sovrapposizione. Il vettore di separazione è normalizzato
+dividendo per $d$, e ogni verme si sposta di <code>overlap/2</code> nella direzione opposta:</p>
+
+$$\hat{n} = \frac{(\Delta x,\ \Delta z)}{d}, \qquad \mathbf{p}_A \mathrel{+}= \hat{n} \cdot \frac{\text{overlap}}{2}, \qquad \mathbf{p}_B \mathrel{-}= \hat{n} \cdot \frac{\text{overlap}}{2}$$
+
+<p>La separazione è <em>simmetrica</em> (nessun verme "ha ragione"). Il caso $d = 0$ viene
+saltato per evitare divisione per zero. La risposta comportamentale è analoga a quella dei muri,
+con la condizione <code>reversalTimer &lt;= 0</code> per evitare che collisioni consecutive
+resettino continuamente il timer impedendo il completamento dell'omega turn.</p>
+</section>
+
+<section id="cibo">
+<h2>10. Sistema Cibo e Fame</h2>
+
+<h3>10.1 Oggetti Cibo</h3>
+
+<p>Il cibo rappresenta colonie batteriche (<em>E. coli</em>, il cibo reale del <em>C. elegans</em>
+in laboratorio) sul terreno della teca. Ogni istanza è un disco piatto generato proceduralmente.
+
+<p>La model matrix scala il disco in base ai <code>nutrients</code> rimasti ($\in [0, 1]$). Il disco dunque si restringe visivamente mentre viene mangiato. Il cibo è a Y=0.01 (invece di Y=0) per evitare z-fighting con il terreno. Essendo il disco di cibo semi-trasparente (alpha=0.65) viene renderizzato dopo tutti gli oggetti opachi.</p>
+
+<h3>10.2 Sistema di Fame Progressiva</h3>
+
+<p>Come abbiamo visto precedentemente, quando i vermi hanno raggiunto una determinata soglia di fame, iniziano a dirigersi verso il cibo. Ma solo quando sono a stretto contatto con esso compinciano effettivamente a mangiare. I parametri sono impostati in maniera tale che la velocità con cui un verme mangia è maggiore della velocità con cui la fame cresce:</p>
+
+<table>
+  <tr><th>Parametro</th><th>Valore</th><th>Effetto</th></tr>
+  <tr><td><code>HUNGER_RATE</code></td><td>0.01 /s</td><td>Morte per inedia in ~100 s senza mangiare</td></tr>
+  <tr><td><code>EAT_RATE</code></td><td>0.10 /s</td><td>Netto −0.09 /s (mangiare &gt; fame)</td></tr>
+  <tr><td><code>CONSUME_RATE</code></td><td>0.20 /s</td><td>Disco pieno esaurito in ~5 s con un verme</td></tr>
+  <tr><td><code>EAT_RADIUS</code></td><td>0.8</td><td>Distanza minima per mangiare</td></tr>
+</table>
+
+<h3>10.3 Spawn Automatico Frame-Rate Independent</h3>
+
+<p>Il pattern <code>Math.random() &lt; rate * deltaTime</code> converte una probabilità per
+secondo in una probabilità per frame in modo frame-rate independent. Con
+<code>FOOD_SPAWN_RATE = 0.05</code> si ha in media uno spawn ogni 20 secondi, identico a 30 FPS
+e a 60 FPS.</p>
+
+</section>
+
+<!-- ============================================================ 12. RAY CASTING -->
+<section id="raycasting">
+<h2>11. Selezione con Ray Casting</h2>
+
+<p>Per selezionare un verme con il mouse si costruisce un raggio 3D (ray) a partire dalle coordinate del cursore e si testa la sua intersezione con la bounding sphere di ogni verme.</p>
+
+<h3>11.1 Da Pixel a NDC</h3>
+
+$$x_{NDC} = \frac{x_{mouse}}{w} \cdot 2 - 1, \qquad y_{NDC} = -(\frac{y_m}{h} \cdot 2 - 1)$$
+
+<p>L'inversione di Y è necessaria perché nel DOM le coordinate crescono verso il basso, mentre in
+NDC crescono verso l'alto.</p>
+
+<h3>11.2 Unprojection: da NDC a Spazio Mondo</h3>
+
+<p>La pipeline di rendering trasforma $\mathbf{p}_{world} \to \mathbf{p}_{clip}$ tramite
+$\mathbf{VP}$. Per costruire il raggio serve l'operazione inversa. Dato un punto in NDC
+$(x_{NDC}, y_{NDC}, z_{NDC}, 1)$, la posizione in spazio mondo si ottiene applicando
+$\mathbf{VP}^{-1}$ e dividendo per $w$ (divisione prospettica inversa):</p>
+
+$$\tilde{\mathbf{p}} = \mathbf{VP}^{-1} \cdot \mathbf{p}_{clip}, \qquad \mathbf{p}_{world} = \frac{\tilde{\mathbf{p}}}{{\tilde{w}}}$$
+
+<p>Si unproiettano due punti: uno sul piano vicino ($z_{NDC} = -1$) e uno
+su quello lontano ($z_{NDC} = +1$) per ottenere origine e direzione del raggio.</p>
+
+<h3>11.3 Test Raggio-Sfera</h3>
+
+<p>Sostituendo $r(t) = o + t\hat{d}$ nell'equazione generica della sfera $|p - c|^2 = R^2$, otteniamo $|(o + t\hat{d}) - c|^2 = R^2$. Definiamo successivamente $\hat{oc}$ come il vettore che va dal centro della sfera all'origine del raggio: $\hat{oc} = o-c$. Dopo svariati processi algebrici, è possibile ridurre la formula ad un'equazione di secondo grado</p>
+
+$$t^2 + 2t(\hat{\mathbf{d}} \cdot \mathbf{oc}) + |\mathbf{oc}|^2 - R^2 = 0$$
+
+<p>Calcoliamo dunque il discriminante di questa equazione, che ci permetterà di capire facilmente se il raggio è finito nel vuoto o è passato attraverso la sfera senza dover necessariamente trovare il punto di impatto:</p>
+
+$$\Delta = (\hat{\mathbf{d}} \cdot \mathbf{oc})^2 - (|\mathbf{oc}|^2 - R^2)$$
+
+<ul>
+  <li>$\Delta < 0$: nessuna intersezione.</li>
+  <li>$\Delta \geq 0$: il raggio colpisce la sfera.</li>
+</ul>
+
+<p>Tra tutti i vermi che intersecano il raggio si sceglie quello con distanza quadrata minima dalla camera (evitando la radice quadrata per ogni verme).</p>
+</section>
+
+<!-- ============================================================ 13. PROCEDURALE -->
+<section id="procedurale">
+<h2>12. Geometria Procedurale</h2>
+
+<p>La maggior parte degli oggetti non sono caricati da file OBJ ma generati a runtime tramite la geometria procedurale. Di seguito una descrizione delle forme più particolari che sono state generate.</p>
+
+<h3>12.1 Faretti</h3>
+
+<p>I faretti sono renderizzati come dei cilindri con <code>CYLINDER_SIDES = 12</code> spicchi. Per ogni spicchio $i$:</p>
+
+$$\theta_1 = \frac{i}{N}2\pi, \quad \theta_2 = \frac{i+1}{N}2\pi$$
+
+<p>Ogni faretto è posizionato agli angoli superiori della teca $(\pm W, H, \pm D)$ e orientato
+verso il centro tramite due angoli calcolati con <code>atan2</code>:</p>
+
+$$\varphi = \mathrm{atan2}(-p_x, -p_z) \quad (\text{yaw, rotazione sull'asse verticale})$$
+
+<p>Lo yaw viene calcolato passando le componenti della distanza tra il centro e il faretto (che collassa nelle coordinate x e z del faretto siccome il centro è l'origine) </p>
+$$ \alpha = \mathrm{atan2}\!\left(\sqrt{p_x^2+p_z^2},\ p_y\right) \quad (\text{pitch, rotazione sull'asse orizzontale})$$
+
+<p>Il pitch invece richiede la distanza obliqua tra il faretto e l'origine, insieme alla sua altezza, per poter ruotare sull'asse orizzontale</p>
+
+<h3>12.2 Badge con Angoli Arrotondati</h3>
+
+<p>Il badge è la geometria più complessa generata proceduralmente: un rettangolo con angoli arrotondati, spessore fisico, più una corda. Per semplificare la costruzione è stato creato inizialmente il perimetro, costruito con 4 archi di cerchio (uno per angolo), ognuno di 6 segmenti che insieme coprono 90°. Il centro dell'arco è a $(W - r, H - r)$.</p>
+
+<p>Le normali dei bordi laterali sono calcolate come le perpendicolari al segmento del perimetro (le cordinate vengono invertie e la x cambia di segno):
+$\hat{n} = (e_y/|e|,\ -e_x/|e|)$ con $\mathbf{e} = $ segmento uscente dal punto corrente.</p>
+
+<p>Il fragment shader del badge ha tre modalità di disegno: 0 = faccia fronte, 1 = faccia retro, 2 = bordi laterali con colore plastica bianca. Tre draw call separate disegnano le tre parti diverse.</p>
+
+<section id="texture">
+<h2>13. Sistema Texture</h2>
+
+<h3>13.1 Mipmap e Filtri</h3>
+
+<p>Le mipmap sono versioni pre-ridotte della texture a risoluzioni dimezzate successive. La GPU sceglie automaticamente il livello in base alla dimensione del texel proiettato, evitando l'aliasing</p>
+
+<ul>
+  <li><code>TEXTURE_MIN_FILTER = LINEAR_MIPMAP_LINEAR</code>: interpolazione tra due livelli mipmap adiacenti.</li>
+  <li><code>TEXTURE_MAG_FILTER = LINEAR</code>: bilinear interpolation per la texture ingrandita.</li>
+</ul>
+
+<h3>13.2 Texture Repeat e Tiling</h3>
+
+<p>Le superfici grandi come il terreno e le pareti usano UV fuori da $[0,1]$ per fare tiling:</p>
+
+<pre><code>gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);</code></pre>
+
+<h3>13.3 Texture Multiple</h3>
+
+<p>Il bancone usa due unità texture simultanee. Nell'unità $0$ la color map, nell'unità $1$ la
+metalness map. Nel fragment shader il canale della metalness map vale $0$ nelle
+zone non metalliche e $1$ nelle zone metalliche, usato per interpolare i parametri di illuminazione.</p>
+
+<h3>13.4 Badge</h3>
+
+<p>Le texture del badge usano <code>gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)</code>: WebGL ha il sistema UV con $Y=0$ in basso, le immagini PNG/JPG hanno il pixel $(0,0)$ in alto a sinistra. Senza questo flip le texture del badge risulterebbero capovolte verticalmente. Il wrapping è <code>CLAMP_TO_EDGE</code> (invece di <code>REPEAT</code>) poiché la foto non deve fare tiling.</p>
+
+<h3>13.5 Elenco Texture</h3>
+
+<table>
+  <tr><th>Oggetto</th><th>File</th></tr>
+  <tr><td>Terreno teca</td><td><code>Ground033_1K-JPG_Color.jpg</code></td></tr>
+  <tr><td>Pavimento stanza</td><td><code>Tiles133D_1K-JPG_Color.jpg</code></td></tr>
+  <tr><td>Pareti/soffitto</td><td><code>Concrete034_1K-JPG_Color.jpg</code></td></tr>
+  <tr><td>Bancone — colore</td><td><code>Metal053B_1K-JPG_Color.jpg</code></td></tr>
+  <tr><td>Bancone — metalness</td><td><code>Metal053B_1K-JPG_Metalness.jpg</code></td><</tr>
+  <tr><td>Badge — fronte</td><td><code>badge-front.png</code></td></tr>
+  <tr><td>Badge — retro</td><td><code>badge-rear.png</code></td></tr>
+</table>
+</section>
+
+<section id="hud">
+<h2>14. Pannello di Controllo e Motor Override</h2>
+
+<h3>14.1 Struttura HUD</h3>
+
+<p>Il pannello di controllo è implementato con <code>dat.GUI</code> in due parti:</p>
+
+<ul>
+  <li><strong>Pannello globale</strong>: sempre visibile. Slider intensità dei 4 faretti,
+      bottone Spawn verme, bottone Spawn cibo, toggle Advanced Rendering.</li>
+  <li><strong>Pannello di selezione</strong>: appare quando un verme è selezionato. Mostra in
+      tempo reale l'attivazione di 8 gruppi di neuroni (forward/backward circuit, sensori luce,
+      sensori cibo, neuroni di tocco testa/coda, motoneuroni). Il <code>.listen()</code> di
+      dat.GUI aggiorna automaticamente i widget ogni frame senza polling esplicito.</li>
+</ul>
+
+<h3>14.2 Motor Override e Thumbstick</h3>
+
+<p>Il bottone "Motor Override" bypassa completamente il connectome e attiva il controllo manuale
+del verme selezionato. Il thumbstick HTML diventa visibile e legge l'input del puntatore.</p>
+
+<p><strong>Clamping radiale</strong>: il vettore $(dx, dy)$ di distanza dal centro del controllo viene normalizzato e riscalato al
+raggio del thumbstick se supera il bordo del base, producendo un input circolare:</p>
+
+<p><strong>Override della direzione</strong>: con l'evento <code>pointerdown</code> la direzione viene fissata in base alla posizione iniziale del joystick. Questo evita che ruotare il thumbstick dalla metà superiore a quella inferiore inverta la marcia a metà gesture.</p>
+
+<p><strong>Fisica dell'override</strong>: il termine
+$\text{steerScale} = 1 - |i_x/\text{mag}| \cdot 0.4$ attenua la rotazione quando il thumbstick
+è in posizione diagonale, riducendo la tendenza del verme a girare su se stesso.</p>
+
+<p>Il motor override risponde anche ai tasti WASD e frecce direzionali.
+
+<h3>14.3 Pointer Events API</h3>
+
+<p>Il thumbstick usa la <strong>Pointer Events API</strong> invece dei Mouse Events per gestire
+mouse e touch con lo stesso codice. I listener <code>pointermove</code> e <code>pointerup</code>
+sono sul <code>document</code> (non sull'elemento base) per ricevere gli eventi anche quando il
+dito esce dall'elemento durante il drag. L'elemento base ha <code>touch-action: none</code> nel
+CSS per disabilitare lo scroll nativo del browser.</p>
+</section>
+
+
+<h3>Librerie Utilizzate</h3>
+<ul>
+  <li><code>m4.js</code> — matematica matriciale</li>
+  <li><code>webgl-utils.js</code> — utility WebGL generali</li>
+  <li><code>dat.gui.js</code> — pannello di controllo GUI</li>
+</ul>
+</section>
+
+<!-- ============================================================ 17. CREDITI -->
+<section id="crediti">
+<h2>17. Crediti e Riferimenti</h2>
+
+<ul>
+  <li><strong>Modello verme</strong>: <a href="http://www.openworm.org/animatedworm.html">VirtualWorm</a>
+      — WormBase / Caltech, licenza MIT</li>
+  <li><strong>Dataset connectome</strong>:
+      <a href="https://github.com/openworm/CElegansNeuroML">OpenWorm / CElegansNeuroML</a>
+      — licenza MIT</li>
+  <li><strong>Texture</strong>: scaricate da <a href="https://ambientcg.com">ambientcg.com</a></li>
+  <li>A Novel Molecular Solution for Ultraviolet Light Detection in Caenorhabditis elegans Edwards SL, Charlie NK, Milfort MC, Brown BS, Gravlin CN, et al</li>
+  <li>Behavioral States. Genetics. 2020 Flavell SW, Raizen DM, You YJ.</li>
+  <li>Light-sensitive neurons and channels mediate phototaxis in C. elegans Alex Ward, Jie Liu, Zhaoyang Feng & X Z Shawn Xu</li>
+  <li>Structural Properties of the Caenorhabditis elegans Neuronal Network Varshney LR, Chen BL, Paniagua E, Hall DH, Chklovskii DB</li>
+  <li>The fundamental role of pirouettes in Caenorhabditis elegans chemotaxis Pierce-Shimomura JT, Morse TM, Lockery SR</li>
+  <li>The neural circuit for touch sensitivity in Caenorhabditis elegans Chalfie M, Sulston JE, White JG, Southgate E, Thomson JN, Brenner S.</li>
+  <li>The Structure of the Nervous System of the Nematode Caenorhabditis elegans J. G. White, E. Southgate, J. N. Thomson, S. Brenner</li>
+
+</ul>
+</section>
+
+</div>
+</body>
+</html>
