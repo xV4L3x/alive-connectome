@@ -45,7 +45,6 @@ const cabinetFragmentShaderSource = `
         float shininess = 64.0;
         vec3 specularColor = steelColor;
 
-
         vec3 normal  = normalize(v_normal);
         vec3 viewDir = normalize(u_viewPosition - v_worldPos);
 

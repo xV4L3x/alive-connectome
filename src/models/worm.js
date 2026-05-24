@@ -17,11 +17,12 @@ const wormVertexShaderSource = `
     uniform float u_bodyMin; //body positions to normalize movement over body
     uniform float u_bodyMax;
 
-    varying vec4 v_diffuse; //color to send to fragment
+    varying vec4 v_diffuse;
     varying vec3 v_normal;
-    varying vec3 v_worldPos; //direction from surface to camera (specular effect)
+    varying vec3 v_worldPos;
     varying vec3 v_specular;
     varying float v_shininess;
+    varying float v_blurFactor;
 
     void main() {
         float s = (a_position.z - u_bodyMin) / (u_bodyMax - u_bodyMin); //normalize the y  in [0,1] 0=head, 1=tail
@@ -34,6 +35,7 @@ const wormVertexShaderSource = `
         v_worldPos = (u_modelMatrix * deformed).xyz; //xyz only takes first 3 coordinates
         v_specular = a_specular;
         v_shininess = a_shininess;
+        v_blurFactor = smoothstep(0.0, 0.8, abs(a_position.x));
     }
 `;
 
@@ -45,6 +47,7 @@ const wormFragmentShaderSource = `
     varying vec3 v_worldPos;
     varying vec3 v_specular;
     varying float v_shininess;
+    varying float v_blurFactor;
 
     uniform vec3 u_lightPositions[4];
     uniform float u_lightIntensities[4];
@@ -59,11 +62,9 @@ const wormFragmentShaderSource = `
     uniform float u_shadowAlpha;
 
     void main() {
-
-        float Ka = 0.4;
-
         if (u_isShadow > 0.5) {
-            gl_FragColor = vec4(0.0, 0.0, 0.0, u_shadowAlpha);
+            float edgeSoftness = 1.0 - v_blurFactor;
+            gl_FragColor = vec4(0.0, 0.0, 0.0, u_shadowAlpha * edgeSoftness);
             return;
         }
 
@@ -71,6 +72,8 @@ const wormFragmentShaderSource = `
             gl_FragColor = vec4(1.0, 0.5, 0.0, 0.65);
             return;
         }
+
+        float Ka = 0.4;
 
         vec3 normal = normalize(v_normal); //normalize because it might not be unitary after interpolation
         vec3 viewDir = normalize(u_viewPosition - v_worldPos); //surface towards camera
@@ -396,8 +399,6 @@ function checkWallCollision(wormInstance, direction) {
         } else {
             wormInstance.speed = MAX_SPEED;
         }
-
-
     }
 
 }
@@ -506,7 +507,6 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
 
             const [lx, ly, lz] = Lights.getPositionsRaw()[i];
             const shadowMatrix = buildShadowMatrix(lx, ly, lz);
-            const flatScale = m4.scaling(1, 0, 1);
 
             // VP × ShadowMatrix × Model
             const [px, py, pz] = wormInstance.position;
@@ -525,7 +525,7 @@ function drawWorm(gl, worm, wormInstance, { viewProjectionMatrix, eye, time }, h
             );
 
             webglUtils.setUniforms(worm.programInfo, {
-                u_matrix:      shadowMVP,
+                u_matrix: shadowMVP,
                 u_shadowAlpha: 0.15 * intensity,
             });
 

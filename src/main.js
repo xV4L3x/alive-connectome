@@ -155,13 +155,14 @@ async function main() {
         drawBadge(gl, badge, { viewProjectionMatrix, eye });
         drawCabinet(gl, cabinet, { viewProjectionMatrix, eye });
         drawPlane(gl, plane, { viewProjectionMatrix, eye,});
+        drawSpotlight(gl, spotlight, { viewProjectionMatrix });
+
         for (const wormInstance of worms) {
             drawWorm(gl, wormGPU, wormInstance, { viewProjectionMatrix, eye, time }, wormInstance === hoveredWorm);
         }
         for (const f of foods) {
             drawFood(gl, food, f, { viewProjectionMatrix, eye });
         }
-        drawSpotlight(gl, spotlight, { viewProjectionMatrix });
         drawTank(gl, tank, { viewProjectionMatrix });
 
         requestAnimationFrame(render);
