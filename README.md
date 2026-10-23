@@ -59,9 +59,9 @@ http://localhost:8000
 - **GUI**: spawn worms, spawn food, tune 4 spotlights, toggle advanced rendering
 - **WASD / Arrow keys / thumbstick**: manual directional override
 
-## Legacy report
+## Scientific report
 
-The original detailed README/report has been preserved at:
+The original full technical/scientific report has been preserved at:
 
 - `relazione/README-legacy.md`
 
